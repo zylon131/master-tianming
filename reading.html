@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TianMing | Decoding Your Path</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Playfair+Display:wght@700;900&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.js"></script>
+    <style>
+        .form-group { margin-bottom: 2rem; }
+        label { display: block; margin-bottom: 0.5rem; font-family: var(--font-serif); font-size: 1.1rem; }
+        input, select { width: 100%; padding: 1rem; border: 1px solid #ddd; background: #fff; font-family: var(--font-sans); }
+        .processing-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-paper); display: none; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 1000;
+        }
+        .ink-animation {
+            width: 150px; height: 150px;
+            background: radial-gradient(circle, var(--ink-black) 0%, transparent 70%);
+            filter: blur(20px); border-radius: 50%;
+            animation: pulse 2s infinite ease-in-out;
+        }
+        @keyframes pulse { 
+            0% { transform: scale(0.8); opacity: 0.3; } 
+            50% { transform: scale(1.2); opacity: 0.8; } 
+            100% { transform: scale(0.8); opacity: 0.3; } 
+        }
+    </style>
+</head>
+<body>
+    <div class="container" style="max-width: 600px; padding: 0 2rem;">
+        <header style="border-bottom: 1px solid rgba(0,0,0,0.05); padding: 2rem 0; margin-bottom: 4rem;">
+            <a href="index.html" class="logo">
+                <div class="bagua-icon"></div>
+                <span>天命</span>
+                <span class="logo-text">TianMing</span>
+            </a>
+            <div class="lang-switch" id="lang-switch">
+                <button class="lang-btn active" data-lang="en">EN</button>
+                <button class="lang-btn" data-lang="zh">中</button>
+            </div>
+        </header>
+
+        <h2 class="i18n" data-key="reading_title" style="font-family: var(--font-serif); font-size: 2.5rem; margin-bottom: 2rem;">Enter Your Details</h2>
+        <p class="i18n" data-key="reading_desc" style="margin-bottom: 4rem; color: #666;">To map your destiny, we need the precise alignment of the stars at the moment of your birth.</p>
+
+        <form id="reading-form">
+            <div class="form-group">
+                <label class="i18n" data-key="label_name">Full Name</label>
+                <input type="text" name="fullname" class="i18n" data-key="placeholder_name" placeholder="For the record of fate" required>
+            </div>
+
+            <div class="form-group">
+                <label class="i18n" data-key="label_gender">Gender</label>
+                <div style="display: flex; gap: 2rem;">
+                    <label style="font-size: 1rem;"><input type="radio" name="gender" value="male" checked style="width: auto;"> <span class="i18n" data-key="gender_m">Male</span></label>
+                    <label style="font-size: 1rem;"><input type="radio" name="gender" value="female" style="width: auto;"> <span class="i18n" data-key="gender_f">Female</span></label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="i18n" data-key="label_dob">Date of Birth (Gregorian)</label>
+                <div style="display: flex; gap: 0.5rem;">
+                    <select id="dob-year" required style="flex: 1.2;"></select>
+                    <select id="dob-month" required style="flex: 1;"></select>
+                    <select id="dob-day" required style="flex: 1;"></select>
+                </div>
+                <input type="hidden" name="dob" id="dob-hidden">
+            </div>
+
+            <div class="form-group">
+                <label class="i18n" data-key="label_tob">Time of Birth</label>
+                <select name="tob" id="tob-select">
+                    <!-- Options remain the same but can be wrapped if needed -->
+                    <option value="unknown">Unknown</option>
+                    <option value="0">00:00 - 00:59 (Zi)</option>
+                    <option value="1">01:00 - 02:59 (Chou)</option>
+                    <option value="3">03:00 - 04:59 (Yin)</option>
+                    <option value="5">05:00 - 06:59 (Mao)</option>
+                    <option value="7">07:00 - 08:59 (Chen)</option>
+                    <option value="9">09:00 - 10:59 (Si)</option>
+                    <option value="11">11:00 - 12:59 (Wu)</option>
+                    <option value="13">13:00 - 14:59 (Wei)</option>
+                    <option value="15">15:00 - 16:59 (Shen)</option>
+                    <option value="17">17:00 - 18:59 (You)</option>
+                    <option value="19">19:00 - 20:59 (Xu)</option>
+                    <option value="21">21:00 - 22:59 (Hai)</option>
+                    <option value="23">23:00 - 23:59 (Zi)</option>
+                </select>
+            </div>
+
+            <div style="margin-top: 4rem; padding: 2rem; border: 1px solid var(--gold); background: #fff;">
+                <h4 style="margin-bottom: 1rem;"><span class="i18n" data-key="reading_tier">Reading Tier</span>: <span id="tier-display">...</span></h4>
+                <p id="tier-price" style="font-size: 2.5rem; font-weight: bold; color: var(--cinnabar);">$0.00</p>
+                <p class="i18n" data-key="stripe_notice" style="font-size: 0.8rem; color: #888; margin-top: 1rem;">Payment will be processed securely via Stripe.</p>
+            </div>
+
+            <button type="submit" class="btn btn-primary i18n" data-key="btn_proceed" style="width: 100%; margin-top: 2rem;">Proceed to Revelation</button>
+        </form>
+    </div>
+
+    <div id="processing" class="processing-overlay">
+        <div class="mystical-container" style="position: relative; width: 200px; height: 200px; margin-bottom: 3rem; display: flex; justify-content: center; align-items: center;">
+            <div class="heavens-gate"></div>
+            <div class="yin-yang"></div>
+        </div>
+        <h3 class="i18n" data-key="processing_master" style="font-family: var(--font-serif); margin-top: 2rem; font-size: 2rem; color: var(--ink-black); letter-spacing: 2px;">Master TianMing is Consulting the Heavens...</h3>
+        <p class="i18n" data-key="processing_calculating" style="margin-top: 1.5rem; color: var(--cinnabar); font-weight: bold; letter-spacing: 1px;">Calculating Eight Characters and Five Elements...</p>
+    </div>
+
+    <script src="main.js" type="module"></script>
+</body>
+</html>

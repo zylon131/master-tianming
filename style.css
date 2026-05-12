@@ -1,0 +1,439 @@
+:root {
+    --bg-paper: #fdfaf5;
+    --ink-black: #1a1a1a;
+    --cinnabar: #b22222;
+    --gold: #c5a059;
+    --font-serif: 'Playfair Display', serif;
+    --font-sans: 'Inter', sans-serif;
+    --font-chinese: 'Ma Shan Zheng', cursive;
+    --transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background-color: var(--bg-paper);
+    color: var(--ink-black);
+    font-family: var(--font-sans);
+    line-height: 1.7;
+    overflow-x: hidden;
+    background-image: url('ink-bg.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+/* Paper Texture Overlay with Noise */
+body::after {
+    content: "";
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: url('https://www.transparenttextures.com/patterns/paper-fibers.png');
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: -1;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 10;
+}
+
+/* ─── Header & Navigation ─── */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2rem 2rem;
+    background: rgba(253, 250, 245, 0.2);
+    backdrop-filter: blur(5px);
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    text-decoration: none;
+    color: var(--cinnabar);
+}
+
+.logo span:first-of-type {
+    font-family: var(--font-chinese);
+    font-size: 2.8rem;
+}
+
+.logo .logo-text {
+    font-family: var(--font-sans);
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+    color: var(--ink-black);
+    font-weight: 600;
+}
+
+.lang-switch {
+    display: flex;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 50px;
+    padding: 4px;
+    border: 1px solid rgba(0,0,0,0.1);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+
+.lang-btn {
+    padding: 0.5rem 1.2rem;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 50px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    transition: var(--transition);
+    color: var(--ink-black);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.lang-btn:hover {
+    background: rgba(0,0,0,0.05);
+}
+
+.lang-btn.active {
+    background: var(--ink-black);
+    color: white;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+/* ─── Hero Section ─── */
+.hero {
+    text-align: center;
+    padding: 10rem 2rem 8rem;
+    min-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+}
+
+h1 {
+    font-family: var(--font-serif);
+    font-weight: 900;
+    font-size: 5rem;
+    margin-bottom: 2rem;
+    line-height: 1.1;
+    letter-spacing: -1px;
+}
+
+.hero p {
+    max-width: 800px;
+    margin: 0 auto 3rem;
+    font-size: 1.15rem;
+    font-family: var(--font-serif);
+    font-style: italic;
+    color: #4a4a4a;
+    line-height: 1.8;
+}
+
+.hero-actions {
+    display: flex;
+    gap: 1.2rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.hero-actions .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 280px;
+    padding: 1.2rem 2rem;
+    font-size: 0.8rem;
+    margin-top: 0;
+}
+
+.hero-actions .btn-secondary {
+    background: transparent;
+    border: 2px solid var(--ink-black);
+    color: var(--ink-black);
+}
+
+.hero-actions .btn-secondary:hover {
+    background: var(--cinnabar);
+    border-color: var(--cinnabar);
+    color: #fff;
+    letter-spacing: 5px;
+}
+
+/* ─── Pricing Section ─── */
+.pricing-section {
+    padding: 3rem 1.5rem;
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(20px);
+    border-radius: 12px;
+}
+
+.section-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+
+.section-header h2 {
+    font-family: var(--font-serif);
+    font-size: 2rem;
+    letter-spacing: 1px;
+}
+
+.pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.2rem;
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+.price-card {
+    background: #fff;
+    padding: 2rem 1.5rem 1.5rem;
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    transition: var(--transition);
+    position: relative;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+}
+
+.price-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.06);
+}
+
+.price-card h3 {
+    font-family: var(--font-serif);
+    font-size: 1.3rem;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+}
+
+.price-tag {
+    font-family: var(--font-serif);
+    font-size: 2.2rem;
+    color: var(--cinnabar);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: baseline;
+}
+
+.price-tag span {
+    font-size: 1.2rem;
+    margin-right: 3px;
+}
+
+.features-list {
+    list-style: none;
+    margin-bottom: 1.5rem;
+    flex-grow: 1;
+}
+
+.features-list li {
+    padding: 0.6rem 0;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    font-size: 0.85rem;
+    color: #666;
+    display: flex;
+    align-items: center;
+}
+
+.features-list li::before {
+    content: "•";
+    color: var(--gold);
+    margin-right: 10px;
+    font-size: 1.2rem;
+}
+
+/* Master Card Special Styling */
+.price-card.featured {
+    border: 1.5px solid var(--gold);
+    z-index: 2;
+}
+
+.price-card.featured::after {
+    content: "MASTER RECOMMENDATION";
+    position: absolute;
+    top: 0; left: 0; width: 100%;
+    background: var(--gold);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    padding: 6px 0;
+    text-align: center;
+    transform: translateY(-100%);
+    border-radius: 8px 8px 0 0;
+}
+
+/* ─── Buttons ─── */
+.btn {
+    display: block;
+    width: 100%;
+    padding: 1rem;
+    text-align: center;
+    text-decoration: none;
+    font-weight: 800;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    transition: var(--transition);
+    border: 2px solid transparent;
+    cursor: pointer;
+    border-radius: 4px;
+    margin-top: auto;
+}
+
+.btn-primary {
+    background: var(--ink-black);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--cinnabar);
+    letter-spacing: 5px;
+}
+
+.price-card.featured .btn-primary {
+    background: var(--cinnabar);
+}
+
+.price-card.featured .btn-primary:hover {
+    background: var(--ink-black);
+}
+
+/* ─── Bagua Background ─── */
+.bagua-bg {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 800px; height: 800px;
+    background: url('bagua.png') no-repeat center;
+    background-size: contain;
+    opacity: 0.05;
+    z-index: -1;
+    animation: slowRotate 100s linear infinite;
+}
+
+@keyframes slowRotate {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@keyframes inkBleed {
+    from { opacity: 0; filter: blur(30px); transform: scale(1.05); }
+    to { opacity: 1; filter: blur(0); transform: scale(1); }
+}
+
+/* ─── Footer ─── */
+footer {
+    text-align: center;
+    padding: 3rem 2rem 2rem;
+    font-size: 0.85rem;
+    color: #888;
+    border-top: 1px solid rgba(0,0,0,0.04);
+    margin-top: 2rem;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 992px) {
+    .pricing-grid {
+        grid-template-columns: 1fr;
+        max-width: 420px;
+    }
+    h1 { font-size: 3.2rem; }
+}
+
+@media (max-width: 600px) {
+    h1 { font-size: 2.5rem; }
+    .hero { padding: 6rem 1.5rem 4rem; min-height: 70vh; }
+    .hero-actions { flex-direction: column; align-items: center; }
+    .hero-actions .btn { width: 100%; }
+}
+
+/* ─── Scroll Progress Bar ─── */
+.progress-bar {
+    position: fixed;
+    top: 0; left: 0; height: 3px;
+    background: var(--cinnabar);
+    z-index: 10000;
+    transition: width 0.2s;
+}
+
+/* ─── Loading Screen Animations ─── */
+.yin-yang {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: linear-gradient(to right, white 50%, var(--ink-black) 50%);
+    border: 3px solid var(--ink-black);
+    position: relative;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.4), inset 0 0 10px rgba(0, 0, 0, 0.8);
+    animation: fastRotate 2s linear infinite;
+    z-index: 2;
+}
+.yin-yang::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%; transform: translateX(-50%);
+    width: 60px; height: 60px;
+    background: white;
+    border-radius: 50%;
+    border: 15px solid var(--ink-black);
+    box-sizing: border-box;
+}
+.yin-yang::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 60px; height: 60px;
+    background: var(--ink-black);
+    border-radius: 50%;
+    border: 15px solid white;
+    box-sizing: border-box;
+}
+@keyframes fastRotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.heavens-gate {
+    position: absolute;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 140px; height: 140px;
+    border-radius: 50%;
+    border: 2px solid var(--gold);
+    box-shadow: 0 0 30px var(--gold);
+    animation: pulseGate 2s ease-in-out infinite alternate;
+    z-index: 1;
+}
+@keyframes pulseGate {
+    from { 
+        width: 140px; height: 140px; 
+        opacity: 0.3; 
+        box-shadow: 0 0 10px var(--gold); 
+    }
+    to { 
+        width: 220px; height: 220px; 
+        opacity: 1; 
+        box-shadow: 0 0 60px var(--gold), inset 0 0 40px var(--gold); 
+        border-width: 4px; 
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-15px); }
+}

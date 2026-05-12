@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TianMing | Ancient Wisdom for Modern Destiny</title>
+    <meta name="description" content="Discover your true path with Master TianMing. Professional Chinese Bazi readings, Five Elements analysis, and curated lucky charms.">
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Playfair+Display:wght@700;900&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
+    <!-- Lunar Algorithm Library -->
+    <script src="https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.js"></script>
+</head>
+<body>
+    <div class="progress-bar" id="scroll-bar"></div>
+    <div class="container">
+        <header>
+            <a href="index.html" class="logo">
+                <div class="bagua-icon"></div>
+                <span>天命</span>
+                <span class="logo-text">TianMing</span>
+            </a>
+            <div style="display: flex; align-items: center; gap: 2rem;">
+                <div class="lang-switch" id="lang-switch">
+                    <button class="lang-btn active" data-lang="en">EN</button>
+                    <button class="lang-btn" data-lang="zh">中</button>
+                </div>
+            </div>
+        </header>
+
+        <section class="hero">
+            <div class="bagua-bg"></div>
+            <h1 class="i18n" data-key="hero_title">Your Destiny, Decoded</h1>
+            <p class="i18n" data-key="hero_desc">Unlock the secrets of your birth chart with 5,000 years of Chinese wisdom. Master TianMing provides profound insights through the Eight Characters (Bazi).</p>
+            <div class="hero-actions">
+                <a href="#readings" class="btn btn-primary i18n" data-key="btn_discover">Discover My Path</a>
+                <a href="zodiac.html" class="btn btn-secondary i18n" data-key="btn_zodiac">Free Zodiac Check</a>
+            </div>
+        </section>
+
+        <section id="readings" class="pricing-section">
+            <div class="section-header">
+                <h2 class="i18n" data-key="nav_start">Select Your Reading</h2>
+            </div>
+            <div class="pricing-grid">
+                <!-- Essential -->
+                <div class="price-card">
+                    <h3 class="i18n" data-key="tier_essential">Essential Insight</h3>
+                    <div class="price-tag"><span>$</span>19</div>
+                    <ul class="features-list">
+                        <li class="i18n" data-key="f1_e">Bazi (8-Character) Chart</li>
+                        <li class="i18n" data-key="f2_e">Five Elements Balance</li>
+                        <li class="i18n" data-key="f3_e">Career & Wealth Outlook</li>
+                        <li class="i18n" data-key="f4_e">Personalized Luck Tips</li>
+                    </ul>
+                    <a href="reading.html?tier=essential" class="btn btn-primary i18n" data-key="nav_start">Start Reading</a>
+                </div>
+
+                <!-- Deluxe -->
+                <div class="price-card">
+                    <h3 class="i18n" data-key="tier_deluxe">Guardian's Path</h3>
+                    <div class="price-tag"><span>$</span>129</div>
+                    <ul class="features-list">
+                        <li class="i18n" data-key="f1_d">Everything in Essential</li>
+                        <li class="i18n" data-key="f2_d">Relationship & Love Match</li>
+                        <li class="i18n" data-key="f3_d">3-Year Detailed Forecast</li>
+                        <li class="i18n" data-key="f4_d">Custom Lucky Bracelet (Free)</li>
+                    </ul>
+                    <a href="reading.html?tier=deluxe" class="btn btn-primary i18n" data-key="nav_start">Start Reading</a>
+                </div>
+
+                <!-- Master -->
+                <div class="price-card featured">
+                    <h3 class="i18n" data-key="tier_master">Master's Revelation</h3>
+                    <div class="price-tag"><span>$</span>299</div>
+                    <ul class="features-list">
+                        <li class="i18n" data-key="f1_m">Personal Review by Master</li>
+                        <li class="i18n" data-key="f2_m">Deep Lifetime Fate Analysis</li>
+                        <li class="i18n" data-key="f3_m">5-Year Auspicious Calendar</li>
+                        <li class="i18n" data-key="f4_m">Spiritual Ritual Advice</li>
+                    </ul>
+                    <a href="reading.html?tier=master" class="btn btn-primary i18n" data-key="nav_start">Start Reading</a>
+                </div>
+            </div>
+        </section>
+
+        <section id="shop" style="padding: 4rem 0;">
+            <h2 style="text-align: center; font-family: var(--font-serif); margin-bottom: 3rem; font-size: 2rem;" class="i18n" data-key="shop_title">The Sacred Collection</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem;">
+                <!-- Product 1 -->
+                <div style="text-align: center;">
+                    <div style="aspect-ratio: 1; background: #eee; margin-bottom: 1rem; position: relative;">
+                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #aaa; font-size: 0.8rem;">[Lucky Bracelet $69]</div>
+                    </div>
+                    <h4 class="i18n" data-key="p1_name" style="font-size: 0.95rem;">Harmonizer Bead</h4>
+                    <p style="color: #666; font-size: 0.75rem; margin-bottom: 0.3rem;">$129.00</p>
+                    <p style="color: var(--cinnabar); font-weight: bold; font-size: 0.9rem;">$69.00 (Sale)</p>
+                </div>
+                <!-- Product 2 -->
+                <div style="text-align: center;">
+                    <div style="aspect-ratio: 1; background: #eee; margin-bottom: 1rem; position: relative;">
+                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #aaa; font-size: 0.8rem;">[Zen Masterpiece $129]</div>
+                    </div>
+                    <h4 class="i18n" data-key="p2_name" style="font-size: 0.95rem;">Zen Masterpiece</h4>
+                    <p style="color: var(--cinnabar); font-weight: bold; font-size: 0.9rem;">$129.00</p>
+                </div>
+                <!-- Product 3 -->
+                <div style="text-align: center;">
+                    <div style="aspect-ratio: 1; background: #eee; margin-bottom: 1rem; position: relative;">
+                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #aaa; font-size: 0.8rem;">[Elite Totem $199]</div>
+                    </div>
+                    <h4 class="i18n" data-key="p3_name" style="font-size: 0.95rem;">Guardian Totem</h4>
+                    <p style="color: var(--cinnabar); font-weight: bold; font-size: 0.9rem;">$199.00</p>
+                </div>
+                <!-- Product 4 -->
+                <div style="text-align: center;">
+                    <div style="aspect-ratio: 1; background: #eee; margin-bottom: 1rem; position: relative; border: 1px solid var(--gold);">
+                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--gold); font-size: 0.8rem;">[Consecrated Relic $1,299]</div>
+                    </div>
+                    <h4 class="i18n" data-key="p4_name" style="font-size: 0.95rem;">Imperial Legacy</h4>
+                    <p style="color: var(--gold); font-weight: bold; font-size: 0.9rem;">$1,299.00</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 Master TianMing. Ancient wisdom, modern insights.</p>
+        <p style="margin-top: 0.8rem; font-size: 0.7rem; max-width: 600px; margin-left: auto; margin-right: auto;">Disclaimer: All readings and products are for entertainment purposes only. We do not provide financial, legal, or medical advice.</p>
+    </footer>
+
+    <script src="main.js" type="module"></script>
+</body>
+</html>
