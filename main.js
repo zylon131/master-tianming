@@ -1,7 +1,3 @@
-// Configuration
-const DEEPSEEK_API_KEY = 'sk-9a969f6e9ebe4328a21b077dc237b905';
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
-
 // --- i18n Dictionary ---
 const translations = {
     en: {
@@ -38,7 +34,7 @@ const translations = {
         p3_name: "Guardian Totem",
         p4_name: "Imperial Legacy",
         reading_tier: "Reading Tier",
-        stripe_notice: "Payment will be processed securely via Stripe.",
+        stripe_notice: "Payment will be processed securely via Lemon Squeezy.",
         gender_m: "Male",
         gender_f: "Female",
         placeholder_name: "For the record of fate",
@@ -91,7 +87,7 @@ const translations = {
         shop_title: "圣藏系列",
         shop_desc: "根据您的命盘，调和您的能量场。",
         reading_tier: "测算档位",
-        stripe_notice: "支付将通过 Stripe 安全处理。",
+        stripe_notice: "支付将通过 Lemon Squeezy 安全处理。",
         gender_m: "男",
         gender_f: "女",
         placeholder_name: "登记于天命册",
@@ -154,13 +150,30 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (container && readingStr) {
                     container.innerHTML = `<div style="text-align:center; padding: 4rem; font-size: 1.2rem; color: var(--cinnabar);">${currentLang === 'zh' ? '正在为您重新凝结命运星象，请稍候...' : 'Consulting the heavens for your translated reading, please wait...'}</div>`;
                     const readingData = JSON.parse(readingStr);
-                    const tier = readingData.tier || sessionStorage.getItem('selected_tier') || 'essential';
-                    
-                    // We can't await inside the click listener synchronously, but the function is async, so it's fine.
-                    const newReport = await generateDestinyReport(readingData.user, readingData.bazi, tier);
-                    readingData.report = newReport;
-                    sessionStorage.setItem('current_reading', JSON.stringify(readingData));
-                    renderReport(readingData);
+                    try {
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const checkoutId = urlParams.get('checkout_id') || readingData.checkout_id;
+                        const orderId = urlParams.get('order_id') || readingData.order_id;
+                        
+                        let query = `lang=${currentLang}`;
+                        if (checkoutId) query += `&checkout_id=${checkoutId}`;
+                        if (orderId) query += `&order_id=${orderId}`;
+                        
+                        const response = await fetch(`/api/get-reading?${query}`);
+                        if (!response.ok) throw new Error("Failed to load reading.");
+                        const resData = await response.json();
+                        
+                        readingData.report = resData.report;
+                        sessionStorage.setItem('current_reading', JSON.stringify({
+                            ...readingData,
+                            checkout_id: checkoutId,
+                            order_id: orderId
+                        }));
+                        renderReport(readingData);
+                    } catch (err) {
+                        console.error(err);
+                        container.innerHTML = `<div style="text-align:center; padding: 4rem; color: var(--cinnabar);">${currentLang === 'zh' ? '获取翻译报告失败，请稍后重试。' : 'Failed to retrieve translated report. Please try again.'}</div>`;
+                    }
                 }
             });
         });
@@ -347,12 +360,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (overlay) overlay.style.display = 'flex';
 
             try {
-                const baziData = calculateBazi(data.dob, data.tob);
-                const report = await generateDestinyReport(data, baziData, tier);
-                sessionStorage.setItem('current_reading', JSON.stringify({ user: data, bazi: baziData, report, tier }));
-                setTimeout(() => window.location.href = 'report.html', 1500);
+                // Request checkout session from secure backend
+                const response = await fetch('/api/create-checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fullname: data.fullname,
+                        gender: data.gender,
+                        dob: data.dob,
+                        tob: data.tob,
+                        tier: tier
+                    })
+                });
+
+                if (!response.ok) throw new Error("Failed to create checkout.");
+                const resData = await response.json();
+                
+                // Redirect user to Lemon Squeezy (or mock testing success url)
+                setTimeout(() => window.location.href = resData.url, 1000);
             } catch (error) {
-                alert("Cloudy heavens. Try again later.");
+                alert(currentLang === 'zh' ? "与服务器通信失败，请稍后再试。" : "Communication with server failed. Please try again later.");
                 if (overlay) overlay.style.display = 'none';
             }
         });
@@ -361,11 +388,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 5. Report Page (check DOM instead of URL pathname for environments that strip .html)
     const reportContainer = document.getElementById('report-content');
     if (reportContainer) {
-        const data = JSON.parse(sessionStorage.getItem('current_reading'));
-        if (!data) {
-            window.location.href = 'index.html';
+        const urlParams = new URLSearchParams(window.location.search);
+        const checkoutId = urlParams.get('checkout_id');
+        const orderId = urlParams.get('order_id');
+
+        if (checkoutId || orderId) {
+            loadReadingFromBackend(checkoutId, orderId);
         } else {
-            renderReport(data);
+            const data = JSON.parse(sessionStorage.getItem('current_reading'));
+            if (!data) {
+                window.location.href = 'index.html';
+            } else {
+                renderReport(data);
+            }
         }
     }
 
@@ -439,106 +474,60 @@ function calculateBazi(dob, tob) {
     };
 }
 
-async function generateDestinyReport(userData, baziData, tier) {
-    const lang = currentLang === 'zh' ? '中文' : 'English';
-    const systemPrompt = currentLang === 'zh' 
-        ? `你现在是"天命大师 (Master TianMing)"，一位精通《渊海子平》和《滴天髓》的易学宗师。你擅长用兼具东方哲学与现代人能理解的优美、神秘的文字来解析八字。请直接输出排版精美的HTML内容（仅使用 h3, p, strong, ul, li 标签），不要使用类似"作为AI..."的套话。`
-        : `You are "Master TianMing", a Grandmaster of Eastern Metaphysics, Four Pillars of Destiny (Bazi), and I Ching. You analyze destinies with profound mystical Eastern philosophy combined with modern understanding. Output beautifully formatted HTML using ONLY h3, p, strong, ul, li tags. Do not break character or use generic AI phrases.`;
-
-    let tierInstructions = '';
-    if (tier === 'essential') {
-        tierInstructions = currentLang === 'zh' ? `
-            【精简排盘 ($19)】
-            请根据以下大纲生成命理报告：
-            1. 八字原局简析：解读命主的日主和五行格局。
-            2. 五行强弱：指出命局中偏旺和缺失的五行。
-            3. 事业财运简析：近期在工作和财富上的机遇与挑战。
-            4. 开运小贴士：简单的日常风水或颜色建议。
-            字数控制在400字左右。
-        ` : `
-            [Essential Insight ($19)]
-            Provide a report based strictly on these topics:
-            1. Bazi Chart Overview: Explain the Day Master and general chart structure.
-            2. Five Elements Balance: Point out strong and missing elements.
-            3. Career & Wealth Outlook: Opportunities and challenges in the near future.
-            4. Personalized Luck Tips: Simple daily feng shui or color recommendations.
-            Keep it concise, around 400 words.
-        `;
-    } else if (tier === 'deluxe') {
-        tierInstructions = currentLang === 'zh' ? `
-            【守护之径 ($129)】
-            请根据以下大纲生成深度命理报告：
-            1. 包含【精简排盘】的所有内容（原局、五行、事业财运）。
-            2. 姻缘与桃花推演：分析命中桃花、婚姻宫的状态及正缘出现时机。
-            3. 未来三年运势详批：逐年分析接下来三年的流年大势。
-            4. 专属五行手链推荐：根据五行喜忌，推荐佩戴什么材质/颜色的手链来调和能量。
-            字数控制在800字左右。
-        ` : `
-            [Guardian's Path ($129)]
-            Provide an in-depth report based strictly on these topics:
-            1. All Essential topics (Bazi overview, Elements, Career/Wealth).
-            2. Relationship & Love Match: Analyze the marriage palace, peach blossom luck, and timing of true love.
-            3. 3-Year Detailed Forecast: Year-by-year analysis for the next 3 years.
-            4. Custom Lucky Bracelet Recommendation: Suggest specific materials/colors for a bracelet to balance their elements.
-            Keep it detailed, around 800 words.
-        `;
-    } else {
-        tierInstructions = currentLang === 'zh' ? `
-            【大师私测 ($299)】
-            请根据以下大纲生成极具深度的宗师级命理报告，语气要极具穿透力，仿佛亲自对案点拨：
-            1. 终身大运详批：深度剖析原局格局、用神忌神，以及每十年一步的大运走势。
-            2. 姻缘与桃花深度解析：命中情感羁绊与前世业力。
-            3. 黄金五年起伏与宜忌预测：详细预测未来五年的吉凶转折点。
-            4. 灵性层面的开运阵法与仪式：提供高级的风水布局、特定的冥想建议或仪式指导，帮助命主突破人生瓶颈。
-            字数在1200字以上，内容详实。
-        ` : `
-            [Master's Revelation ($299)]
-            Provide a profound, grandmaster-level reading with piercing insight, as if speaking directly to the client:
-            1. Deep Lifetime Fate Analysis: Analyze the core chart structure, favorable/unfavorable elements, and 10-year luck pillars.
-            2. Relationship Karma: Deep dive into romantic destiny and karmic ties.
-            3. 5-Year Auspicious Calendar: Detailed forecast of the next 5 years, highlighting critical turning points and specific dos/don'ts.
-            4. Spiritual Ritual Advice: Advanced Feng Shui layouts, meditation practices, or rituals to break through life bottlenecks.
-            Make it extensive and profound, over 1200 words.
-        `;
-    }
-
-    const genderStr = currentLang === 'zh' 
-        ? (userData.gender === 'male' ? '男 (乾造)' : '女 (坤造)')
-        : (userData.gender === 'male' ? 'Male' : 'Female');
-
-    const userPrompt = `
-        Client Profile / 命主信息:
-        Name / 姓名: ${userData.fullname}
-        Gender / 性别: ${genderStr}
-        Bazi Pillars / 八字: ${baziData.pillars.join(' ')}
-        Five Elements / 五行: ${baziData.elements.join(' ')}
-        Day Master / 日主: ${baziData.dayMasterElement}
-        
-        Strict Instructions / 严格要求:
-        ${tierInstructions}
-        
-        Generate the report in ${lang}. ONLY return HTML code (h3, p, strong, ul, li). Do not include markdown code blocks (like \`\`\`html) in the output, just the raw HTML.
+async function loadReadingFromBackend(checkoutId, orderId) {
+    const container = document.getElementById('report-content');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div style="text-align: center; padding: 4rem;">
+            <p style="font-size: 1.2rem; color: var(--cinnabar); font-weight: bold; animation: pulse 2.5s infinite;">
+                ${currentLang === 'zh' ? '正在与天界核对缘分，解析您的命理玄机...' : 'Verifying your token and decoding the stars...'}
+            </p>
+        </div>
     `;
 
     try {
-        const response = await fetch(DEEPSEEK_API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DEEPSEEK_API_KEY}` },
-            body: JSON.stringify({
-                model: "deepseek-chat",
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userPrompt }
-                ],
-                temperature: 0.7
-            })
-        });
-        const result = await response.json();
-        return result.choices[0].message.content.replace(/```html|```/g, '').trim();
-    } catch (e) {
-        return currentLang === 'en' 
-            ? "<p style='color: var(--cinnabar);'>The stars are obscured. Please try again later.</p>" 
-            : "<p style='color: var(--cinnabar);'>星象被掩盖，请稍后再试。</p>";
+        let query = `lang=${currentLang}`;
+        if (checkoutId) query += `&checkout_id=${checkoutId}`;
+        if (orderId) query += `&order_id=${orderId}`;
+
+        const response = await fetch(`/api/get-reading?${query}`);
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || "Unpaid or invalid session.");
+        }
+
+        const resData = await response.json();
+        
+        // Save to session storage
+        sessionStorage.setItem('current_reading', JSON.stringify({
+            user: resData.user,
+            bazi: resData.bazi,
+            report: resData.report,
+            tier: resData.tier,
+            checkout_id: checkoutId,
+            order_id: orderId
+        }));
+
+        renderReport(resData);
+    } catch (error) {
+        console.error("Load Reading Error:", error);
+        container.innerHTML = `
+            <div style="text-align: center; padding: 4rem; border: 1px solid var(--cinnabar); background: rgba(178,34,34,0.05); border-radius: 8px;">
+                <h3 style="color: var(--cinnabar); font-family: var(--font-serif); font-size: 1.8rem; margin-bottom: 1rem;">
+                    ${currentLang === 'zh' ? '命运星象未能显现' : 'The Stars Are Obscured'}
+                </h3>
+                <p style="margin-bottom: 2rem;">
+                    ${currentLang === 'zh' 
+                        ? (error.message.includes("Payment") ? '测算尚未完成支付，请确认您的订单状态。' : '支付校验成功但获取报告失败，请稍后刷新重试或联系客服。')
+                        : (error.message.includes("Payment") ? 'Payment verification is pending. Please complete checkout.' : 'Failed to retrieve your reading. Please refresh or contact support.')
+                    }
+                </p>
+                <a href="index.html" class="btn btn-secondary" style="display: inline-block; width: auto; padding: 0.8rem 2rem;">
+                    ${currentLang === 'zh' ? '返回首页' : 'Return to Home'}
+                </a>
+            </div>
+        `;
     }
 }
 
@@ -562,24 +551,34 @@ function renderReport(data) {
     // 1688 Five Elements Product Attribute Management
     const productsDB = {
         '金': {
-            en: { name: "White Gold Obsidian Bracelet", desc: "Forged with Metal energy to enhance decision-making and attract wealth." },
-            zh: { name: "白金黑曜石手串", desc: "蕴含纯正金气，助您决断果敢，招财纳福，破除事业迷雾。" }
+            image: 'talisman_metal.png',
+            price: '$39.00 USD / ¥268.00',
+            en: { name: "White Gold Obsidian Bracelet", desc: "Forged with Metal energy to enhance decision-making, ground your spirit, and attract elite wealth." },
+            zh: { name: "白金黑曜石本命手链", desc: "蕴含纯正金气，助您决断果敢，招财纳福，破除事业迷雾，辟邪消灾。" }
         },
         '木': {
-            en: { name: "Green Sandalwood Zen Beads", desc: "Nourished with Wood energy to promote growth, healing, and creativity." },
-            zh: { name: "绿檀木禅意佛珠", desc: "木气生发，养神静心，助旺文昌与事业节节高升。" }
+            image: 'talisman_wood.png',
+            price: '$39.00 USD / ¥268.00',
+            en: { name: "Green Sandalwood Zen Beads", desc: "Nourished with Wood energy to promote healing, peace of mind, and academic/career growth." },
+            zh: { name: "绿檀木禅意佛珠手串", desc: "木气生发，养神静心，助旺文昌，调和身心平衡，助事业节节高升。" }
         },
         '水': {
-            en: { name: "Deep Sea Aquamarine Talisman", desc: "Flowing with Water energy to bring calm, wisdom, and emotional balance." },
-            zh: { name: "深海海蓝宝护符", desc: "水气润泽，化解焦躁，增强沟通与智慧，柔化流年煞气。" }
+            image: 'talisman_water.png',
+            price: '$39.00 USD / ¥268.00',
+            en: { name: "Deep Sea Aquamarine Talisman", desc: "Flowing with Water energy to bring serene wisdom, calm emotions, and smooth out yearly clashes." },
+            zh: { name: "深海海蓝宝开运护符", desc: "水气润泽，化解焦虑与急躁，增强沟通与智慧，柔化本命流年煞气。" }
         },
         '火': {
-            en: { name: "Crimson Agate Amulet", desc: "Blazing with Fire energy to boost vitality, passion, and fame." },
-            zh: { name: "赤焰南红玛瑙", desc: "火气升腾，激发热情与生命力，助旺贵人缘与名气。" }
+            image: 'talisman_fire.png',
+            price: '$39.00 USD / ¥268.00',
+            en: { name: "Crimson Agate Amulet", desc: "Blazing with Fire energy to boost vitality, ignite passion, and expand noble connections." },
+            zh: { name: "赤焰南红玛瑙吉化手串", desc: "火气升腾，激发无尽热情与生命力，助旺正桃花、贵人缘与名气。" }
         },
         '土': {
-            en: { name: "Yellow Citrine Prosperity Sphere", desc: "Grounded with Earth energy to provide stability, trust, and wealth retention." },
-            zh: { name: "黄水晶聚宝手链", desc: "厚土承载，稳固根基，极强吸金聚财，让事业与家庭稳如泰山。" }
+            image: 'talisman_earth.png',
+            price: '$39.00 USD / ¥268.00',
+            en: { name: "Yellow Citrine Prosperity Sphere", desc: "Grounded with Earth energy to provide solid stability, family peace, and strong wealth retention." },
+            zh: { name: "黄水晶聚宝招财手链", desc: "厚土承载，稳固运势根基，极强吸金聚财，让您的事业与家庭稳如泰山。" }
         }
     };
 
@@ -601,18 +600,124 @@ function renderReport(data) {
         }
     }
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const checkoutId = urlParams.get('checkout_id') || '';
+    const orderId = urlParams.get('order_id') || '';
+
     const recContainer = document.getElementById('recommended-products');
     if (recContainer) {
         const productInfo = productsDB[lackingElement][currentLang === 'zh' ? 'zh' : 'en'];
-        const labelNeeded = currentLang === 'zh' ? `五行缺${lackingElement}专属` : `Needs ${lackingElement} Energy`;
+        const productImg = productsDB[lackingElement].image;
+        const labelNeeded = currentLang === 'zh' ? `五行缺${lackingElement}专属调和法器` : `Needs ${lackingElement} Energy Support`;
         
         recContainer.innerHTML = `
-            <div style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 2rem; border-radius: 8px; text-align: center;">
-                <div style="font-size: 0.8rem; color: var(--gold); margin-bottom: 0.5rem; font-weight: bold; letter-spacing: 2px;">[ ${labelNeeded} ]</div>
-                <h4 style="font-family: var(--font-serif); font-size: 1.5rem; margin-bottom: 1rem; color: #fff;">${productInfo.name}</h4>
-                <p style="font-size: 0.95rem; opacity: 0.8; margin-bottom: 1.5rem; line-height: 1.6;">${productInfo.desc}</p>
-                <a href="#" class="btn btn-primary" style="padding: 0.8rem 2rem; font-size: 1rem;">${currentLang === 'zh' ? '立即结缘' : 'Claim Your Talisman'}</a>
+            <div class="talisman-card" style="display: flex; flex-direction: row; flex-wrap: wrap; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; overflow: hidden; max-width: 800px; margin: 0 auto; text-align: left; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <div style="flex: 1; min-width: 250px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.2); padding: 2rem;">
+                    <img src="${productImg}" alt="${productInfo.name}" style="max-width: 220px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);">
+                </div>
+                <div style="flex: 1.5; min-width: 280px; padding: 2.5rem; display: flex; flex-direction: column; justify-content: center;">
+                    <div style="font-size: 0.8rem; color: var(--gold); margin-bottom: 0.5rem; font-weight: bold; letter-spacing: 2px;">[ ${labelNeeded} ]</div>
+                    <h4 style="font-family: var(--font-serif); font-size: 1.8rem; margin: 0 0 1rem 0; color: #fff; line-height: 1.2;">${productInfo.name}</h4>
+                    <div style="font-size: 1.4rem; color: var(--gold); font-weight: 700; margin-bottom: 1.5rem;">$39.00 USD <span style="font-size: 0.9rem; opacity: 0.6; font-weight: 400; margin-left: 0.5rem;">(¥268.00 CNY)</span></div>
+                    <p style="font-size: 0.95rem; opacity: 0.85; margin-bottom: 2rem; line-height: 1.6;">${productInfo.desc}</p>
+                    
+                    <button id="btn-show-checkout" class="btn btn-primary" style="padding: 1rem 2rem; font-size: 1rem; width: auto; align-self: flex-start; cursor: pointer;">
+                        ${currentLang === 'zh' ? '立即结缘 (1688直邮发货)' : 'Claim Your Talisman (1688 Dropship)'}
+                    </button>
+
+                    <div id="talisman-checkout-form" style="display: none; margin-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 2rem;">
+                        <h5 style="color: #fff; font-size: 1.1rem; margin: 0 0 1.5rem 0; font-family: var(--font-serif);">${currentLang === 'zh' ? '填写收货信息' : 'Enter Shipping Details'}</h5>
+                        <div style="display: grid; grid-template-columns: 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                            <input type="text" id="talisman-ship-name" placeholder="${currentLang === 'zh' ? '收件人姓名' : 'Full Name'}" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); padding: 0.8rem; border-radius: 4px; color: #fff; width: 100%; box-sizing: border-box;">
+                            <input type="email" id="talisman-ship-email" placeholder="${currentLang === 'zh' ? '电子邮箱' : 'Email Address'}" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); padding: 0.8rem; border-radius: 4px; color: #fff; width: 100%; box-sizing: border-box;">
+                            <input type="text" id="talisman-ship-phone" placeholder="${currentLang === 'zh' ? '联系电话' : 'Phone Number'}" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); padding: 0.8rem; border-radius: 4px; color: #fff; width: 100%; box-sizing: border-box;">
+                            <input type="text" id="talisman-ship-address" placeholder="${currentLang === 'zh' ? '详细收货地址 (省市区街道门牌号)' : 'Shipping Address (Street, City, Zip)'}" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); padding: 0.8rem; border-radius: 4px; color: #fff; width: 100%; box-sizing: border-box;">
+                        </div>
+                        <div id="talisman-error-msg" style="color: #ff5b5b; font-size: 0.9rem; margin-bottom: 1rem; display: none;"></div>
+                        <button id="btn-submit-talisman" class="btn btn-primary" style="padding: 1rem 2rem; font-size: 1rem; width: 100%;">${currentLang === 'zh' ? '确认付款并安全结缘' : 'Confirm Payment & Order'}</button>
+                    </div>
+
+                    <div id="talisman-success-msg" style="display: none; margin-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 2rem; color: #00ff88; text-align: center;">
+                        <h5 style="font-size: 1.3rem; margin: 0 0 0.5rem 0; font-family: var(--font-serif);">${currentLang === 'zh' ? '结缘成功！' : 'Sacred Order Confirmed!'}</h5>
+                        <p style="font-size: 0.95rem; opacity: 0.9; margin: 0 0 1rem 0; line-height: 1.6;" id="talisman-success-text"></p>
+                        <div style="font-size: 0.8rem; opacity: 0.6; padding: 0.5rem; background: rgba(0,0,0,0.2); border-radius: 4px;" id="talisman-tracking-text"></div>
+                    </div>
+                </div>
             </div>
         `;
+
+        const showBtn = document.getElementById('btn-show-checkout');
+        const formDiv = document.getElementById('talisman-checkout-form');
+        const submitBtn = document.getElementById('btn-submit-talisman');
+        const errorMsg = document.getElementById('talisman-error-msg');
+        const successDiv = document.getElementById('talisman-success-msg');
+
+        showBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            formDiv.style.display = 'block';
+            showBtn.style.display = 'none';
+        });
+
+        submitBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const fullName = document.getElementById('talisman-ship-name').value.trim();
+            const email = document.getElementById('talisman-ship-email').value.trim();
+            const phoneNumber = document.getElementById('talisman-ship-phone').value.trim();
+            const shippingAddress = document.getElementById('talisman-ship-address').value.trim();
+
+            if (!fullName || !email || !phoneNumber || !shippingAddress) {
+                errorMsg.textContent = currentLang === 'zh' ? '请填写所有收货信息' : 'Please fill in all shipping details';
+                errorMsg.style.display = 'block';
+                return;
+            }
+            errorMsg.style.display = 'none';
+            submitBtn.disabled = true;
+            submitBtn.textContent = currentLang === 'zh' ? '处理付款中...' : 'Processing Payment...';
+
+            try {
+                const response = await fetch('/api/buy-talisman', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        orderId: checkoutId || orderId || 'stateless',
+                        lackingElement,
+                        talismanName: productInfo.name,
+                        price: '$39.00 USD',
+                        fullName,
+                        email,
+                        shippingAddress,
+                        phoneNumber
+                    })
+                });
+
+                const resData = await response.json();
+                if (resData.success) {
+                    formDiv.style.display = 'none';
+                    successDiv.style.display = 'block';
+                    
+                    const successText = currentLang === 'zh' 
+                        ? `感谢您的信任。您的法器订单已建立（单号：${resData.orderId}）。天命大师将为您亲自加持并开光，我们将在24小时内通过1688物流体系直邮发货，您的五行磁场即将得到调和与圆满。`
+                        : `Thank you for your trust. Your talisman order (${resData.orderId}) has been successfully created. Master TianMing will personally consecrate it, and it will be dispatched within 24 hours.`;
+                    
+                    const trackingText = currentLang === 'zh'
+                        ? `物流运单号：${resData.trackingId} (1688一键代发已同步)`
+                        : `Logistic Tracking ID: ${resData.trackingId} (dropship synchronized)`;
+                    
+                    document.getElementById('talisman-success-text').textContent = successText;
+                    document.getElementById('talisman-tracking-text').textContent = trackingText;
+                } else {
+                    errorMsg.textContent = resData.error || 'Failed to process checkout.';
+                    errorMsg.style.display = 'block';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = currentLang === 'zh' ? '确认付款并安全结缘' : 'Confirm Payment & Order';
+                }
+            } catch (err) {
+                console.error("Buy talisman fetch error:", err);
+                errorMsg.textContent = currentLang === 'zh' ? '网络请求失败，请稍后重试' : 'Network error. Please try again.';
+                errorMsg.style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.textContent = currentLang === 'zh' ? '确认付款并安全结缘' : 'Confirm Payment & Order';
+            }
+        });
     }
 }
