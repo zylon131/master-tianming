@@ -456,6 +456,296 @@ app.post('/api/buy-talisman', async (req, res) => {
     }
 });
 
+// Admin authentication middleware
+const verifyAdmin = (req, res, next) => {
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    const authHeader = req.headers.authorization;
+    const token = req.query.token;
+    
+    let provided = '';
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        provided = authHeader.substring(7);
+    } else if (token) {
+        provided = token;
+    }
+    
+    if (provided === adminPassword) {
+        return next();
+    }
+    return res.status(401).json({ error: "Unauthorized admin access." });
+};
+
+// Admin: Get all orders
+app.get('/api/admin/orders', verifyAdmin, (req, res) => {
+    const fs = require('fs');
+    const ordersFile = path.join(__dirname, 'orders.json');
+    let orders = [];
+    if (fs.existsSync(ordersFile)) {
+        try {
+            orders = JSON.parse(fs.readFileSync(ordersFile, 'utf8'));
+        } catch (err) {
+            console.error("Error reading orders.json:", err);
+        }
+    }
+    // Return sorted by date descending
+    orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return res.json({ orders });
+});
+
+// Admin: Get 1688 product mappings
+app.get('/api/admin/mappings', verifyAdmin, (req, res) => {
+    const fs = require('fs');
+    const mappingsFile = path.join(__dirname, 'talisman_mappings.json');
+    let mappings = {};
+    if (fs.existsSync(mappingsFile)) {
+        try {
+            mappings = JSON.parse(fs.readFileSync(mappingsFile, 'utf8'));
+        } catch (err) {
+            console.error("Error reading talisman_mappings.json:", err);
+        }
+    }
+    return res.json({ mappings });
+});
+
+// Admin: Update 1688 product mapping
+app.post('/api/admin/update-mapping', verifyAdmin, (req, res) => {
+    const fs = require('fs');
+    const mappingsFile = path.join(__dirname, 'talisman_mappings.json');
+    const { element, productId, skuId, notes } = req.body;
+    
+    if (!element || !productId) {
+        return res.status(400).json({ error: "Missing element or productId." });
+    }
+
+    let mappings = {};
+    if (fs.existsSync(mappingsFile)) {
+        try {
+            mappings = JSON.parse(fs.readFileSync(mappingsFile, 'utf8'));
+        } catch (err) {
+            console.error("Error reading mappings:", err);
+        }
+    }
+
+    mappings[element] = {
+        productId,
+        skuId: skuId || "",
+        description: mappings[element] ? mappings[element].description : `${element} Talisman`,
+        notes: notes || ""
+    };
+
+    fs.writeFileSync(mappingsFile, JSON.stringify(mappings, null, 4), 'utf8');
+    return res.json({ success: true, message: "Mapping updated successfully.", mappings });
+});
+
+// Admin: Export 1688 Dropshipping Excel/CSV Template
+app.get('/api/admin/export-csv', verifyAdmin, (req, res) => {
+    const fs = require('fs');
+    const ordersFile = path.join(__dirname, 'orders.json');
+    const mappingsFile = path.join(__dirname, 'talisman_mappings.json');
+    
+    let orders = [];
+    if (fs.existsSync(ordersFile)) {
+        orders = JSON.parse(fs.readFileSync(ordersFile, 'utf8'));
+    }
+    
+    let mappings = {};
+    if (fs.existsSync(mappingsFile)) {
+        mappings = JSON.parse(fs.readFileSync(mappingsFile, 'utf8'));
+    }
+
+    // Prepare CSV Content (standard dropship CSV template)
+    // UTF-8 with BOM to prevent Excel display corruption
+    let csvContent = '\uFEFF';
+    csvContent += '订单号(Our Order ID),收货人姓名(Name),收货人电话(Phone),收货地址(Address),1688宝贝ID(1688 Offer ID),1688规格SKU(1688 SKU ID),购买数量(Qty),商家备注(Notes),订单状态(Status)\n';
+
+    orders.forEach(o => {
+        const elementKey = o.lackingElement ? o.lackingElement.toLowerCase() : '';
+        const mapInfo = mappings[elementKey] || { productId: '', skuId: '' };
+        
+        // Escape CSV values containing commas or quotes
+        const cleanName = (o.customer.fullName || '').replace(/"/g, '""');
+        const cleanPhone = (o.customer.phoneNumber || '').replace(/"/g, '""');
+        const cleanAddr = (o.customer.shippingAddress || '').replace(/"/g, '""');
+        
+        csvContent += `"${o.orderId}","${cleanName}","${cleanPhone}","${cleanAddr}","${mapInfo.productId}","${mapInfo.skuId}",1,"五行:${o.lackingElement}","${o.status}"\n`;
+    });
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=talisman_1688_dropship_orders.csv');
+    return res.send(csvContent);
+});
+
+// Admin: Sync Order to 1688 via API (Real + Mock simulation client)
+app.post('/api/admin/sync-1688', verifyAdmin, async (req, res) => {
+    const fs = require('fs');
+    const { orderId } = req.body;
+    
+    if (!orderId) {
+        return res.status(400).json({ error: "Missing orderId." });
+    }
+
+    const ordersFile = path.join(__dirname, 'orders.json');
+    const mappingsFile = path.join(__dirname, 'talisman_mappings.json');
+    
+    let orders = [];
+    if (fs.existsSync(ordersFile)) {
+        orders = JSON.parse(fs.readFileSync(ordersFile, 'utf8'));
+    }
+    
+    let mappings = {};
+    if (fs.existsSync(mappingsFile)) {
+        mappings = JSON.parse(fs.readFileSync(mappingsFile, 'utf8'));
+    }
+
+    const orderIdx = orders.findIndex(o => o.orderId === orderId);
+    if (orderIdx === -1) {
+        return res.status(404).json({ error: "Order not found." });
+    }
+
+    const order = orders[orderIdx];
+    const elementKey = order.lackingElement ? order.lackingElement.toLowerCase() : '';
+    const mapInfo = mappings[elementKey];
+
+    if (!mapInfo || !mapInfo.productId) {
+        return res.status(400).json({ error: `Please configure a 1688 Product ID for the element '${order.lackingElement}' first.` });
+    }
+
+    // 1688 API Credentials from env
+    const appKey = process.env['1688_APP_KEY'];
+    const appSecret = process.env['1688_APP_SECRET'];
+    const accessToken = process.env['1688_ACCESS_TOKEN'];
+    const buyerMemberId = process.env['1688_BUYER_MEMBER_ID'] || 'mock_buyer_member';
+
+    const isMock = !appKey || !appSecret || !accessToken || appKey.startsWith('your_');
+
+    // Build the cargo and address payload for 1688
+    const orderPayload = {
+        addressParam: JSON.stringify({
+            fullName: order.customer.fullName,
+            mobile: order.customer.phoneNumber,
+            phone: order.customer.phoneNumber,
+            postCode: "000000", // Default postcode
+            province: "浙江省",  // In production, we parse province/city/area using address parsing libs
+            city: "杭州市",
+            area: "滨江区",
+            address: order.customer.shippingAddress
+        }),
+        cargoParamList: JSON.stringify([{
+            offerId: parseInt(mapInfo.productId),
+            specId: mapInfo.skuId || undefined,
+            quantity: 1
+        }]),
+        flow: "general", // general dropshipping flow
+        buyerMemberId
+    };
+
+    if (isMock) {
+        // Simulation mode
+        console.log(`[1688 API Simulation] Placing order on 1688 for customer ${order.customer.fullName}:`, orderPayload);
+        
+        // Update local order status
+        const mock1688OrderId = `ALIBABA1688-${Math.floor(100000000 + Math.random() * 900000000)}`;
+        order.status = 'synced_to_1688';
+        order.alibabaOrderId = mock1688OrderId;
+        order.syncedAt = new Date().toISOString();
+        
+        fs.writeFileSync(ordersFile, JSON.stringify(orders, null, 4), 'utf8');
+
+        return res.json({
+            success: true,
+            simulated: true,
+            alibabaOrderId: mock1688OrderId,
+            message: "1688 API connection simulated successfully! (To activate real synchronization, configure your 1688 API keys in .env)",
+            payloadSent: orderPayload
+        });
+    }
+
+    // Real API integration client
+    try {
+        const crypto = require('crypto');
+        
+        // Alibaba Open API URL format:
+        // http://gw.api.alibaba.com/openapi/param2/1/com.alibaba.trade/alibaba.trade.fastCreateOrder/YOUR_APP_KEY
+        const apiPath = `param2/1/com.alibaba.trade/alibaba.trade.fastCreateOrder/${appKey}`;
+        const apiUrl = `https://gw.api.alibaba.com/openapi/${apiPath}`;
+        
+        // Add auth parameters
+        const apiParams = {
+            access_token: accessToken,
+            ...orderPayload
+        };
+
+        // Signature calculation
+        const sortedKeys = Object.keys(apiParams).sort();
+        let paramStr = '';
+        for (const key of sortedKeys) {
+            paramStr += key + apiParams[key];
+        }
+        const signatureStr = apiPath + paramStr;
+        const hmac = crypto.createHmac('sha1', appSecret);
+        hmac.update(signatureStr);
+        const signature = hmac.digest('hex').toUpperCase();
+
+        apiParams['_aop_signature'] = signature;
+
+        // Make the outbound post request using application/x-www-form-urlencoded
+        const bodyParams = new URLSearchParams();
+        for (const k in apiParams) {
+            bodyParams.append(k, apiParams[k]);
+        }
+
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: bodyParams.toString()
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`1688 API request failed (${response.status}): ${errText}`);
+        }
+
+        const resData = await response.json();
+        
+        if (resData.success === false || resData.errorMsg) {
+            throw new Error(resData.errorMsg || resData.errorMessage || "Unknown error from 1688 API.");
+        }
+
+        // Extract 1688 order ID
+        const alibabaOrderId = resData.result.orderId;
+        order.status = 'synced_to_1688';
+        order.alibabaOrderId = alibabaOrderId;
+        order.syncedAt = new Date().toISOString();
+
+        fs.writeFileSync(ordersFile, JSON.stringify(orders, null, 4), 'utf8');
+
+        return res.json({
+            success: true,
+            simulated: false,
+            alibabaOrderId,
+            message: "Successfully synchronized order to your 1688 account! Please complete payment in your 1688 console.",
+            result: resData.result
+        });
+
+    } catch (apiError) {
+        console.error("1688 API execution failed:", apiError);
+        return res.status(500).json({
+            error: "Failed to connect to 1688 API.",
+            details: apiError.message
+        });
+    }
+});
+
+// Serve Admin Dashboard
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin.html'));
+});
+app.get('/admin.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
 // Fallback to serving index.html for undefined routes
 app.get('*all', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));

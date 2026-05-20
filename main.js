@@ -33,6 +33,7 @@ const translations = {
         p2_name: "Zen Masterpiece",
         p3_name: "Guardian Totem",
         p4_name: "Imperial Legacy",
+        p5_name: "Flame Cinnabar",
         reading_tier: "Reading Tier",
         stripe_notice: "Payment will be processed securely via Lemon Squeezy.",
         gender_m: "Male",
@@ -54,12 +55,12 @@ const translations = {
         f3_m: "5-Year Auspicious Calendar",
         f4_m: "Spiritual Ritual Advice",
         btn_buy_now: "Buy Now",
-        dropship_desc: "Fitted with direct 1688 dropshipping shipping. Free delivery within 7-14 days.",
+        dropship_desc: "Consecrated by the Master and dispatched securely from our sanctuary. Free delivery within 7-14 days.",
         label_phone: "Phone Number",
         label_address: "Shipping Address",
         order_success: "Purchase Successful!",
-        order_success_desc: "Your payment has been completed. The product will be shipped directly via 1688 dropshipping.",
-        delivery_est: "Estimated delivery: 7-14 business days. A tracking link has been sent to your email.",
+        order_success_desc: "Your payment has been completed. The talisman will be custom consecrated and dispatched securely.",
+        delivery_est: "Estimated delivery: 7-14 business days. A tracking link will be sent to your email.",
         placeholder_phone: "+1 123 456 7890",
         placeholder_address: "Street Address, City, State, ZIP, Country",
         btn_pay: "Complete Payment"
@@ -73,6 +74,7 @@ const translations = {
         p2_name: "禅意杰作",
         p3_name: "守护图腾",
         p4_name: "皇家传承",
+        p5_name: "烈焰朱砂",
         tier_essential: "精简排盘",
         tier_deluxe: "守护之径",
         tier_master: "大师亲测",
@@ -117,12 +119,12 @@ const translations = {
         f3_m: "黄金五年吉凶宜忌预测",
         f4_m: "灵性层面的高级开运阵法",
         btn_buy_now: "立即结缘",
-        dropship_desc: "经由 1688 直接发货，7-14天免费送达。",
+        dropship_desc: "由天命堂工坊专属手工定制，经大师亲自加持开光，7-14天免费安全寄达。",
         label_phone: "联系电话",
         label_address: "收货地址",
         order_success: "结缘成功！",
-        order_success_desc: "您的付款已完成。商品将通过 1688 直接代发邮寄给您。",
-        delivery_est: "预计送达时间：7-14个工作日。物流单号已发送至您的邮箱。",
+        order_success_desc: "您的付款已完成。法器将由天命大师亲自加持开光后，由官方物流专仓安全寄送给您。",
+        delivery_est: "预计送达时间：7-14个工作日。物流跟踪链接将通过邮件及短信发送给您。",
         placeholder_phone: "您的收货联系电话，用于接收短信",
         placeholder_address: "详细的邮寄地址，例如：XX省XX市XX区XX街道XX号",
         btn_pay: "确认付款"
@@ -735,7 +737,7 @@ function renderReport(data) {
                     <p style="font-size: 0.95rem; opacity: 0.85; margin-bottom: 2rem; line-height: 1.6;">${productInfo.desc}</p>
                     
                     <button id="btn-show-checkout" class="btn btn-primary" style="padding: 1rem 2rem; font-size: 1rem; width: auto; align-self: flex-start; cursor: pointer;">
-                        ${currentLang === 'zh' ? '立即结缘 (1688直邮发货)' : 'Claim Your Talisman (1688 Dropship)'}
+                        ${currentLang === 'zh' ? '立即结缘' : 'Claim Your Talisman'}
                     </button>
 
                     <div id="talisman-checkout-form" style="display: none; margin-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 2rem;">
@@ -809,12 +811,12 @@ function renderReport(data) {
                     successDiv.style.display = 'block';
                     
                     const successText = currentLang === 'zh' 
-                        ? `感谢您的信任。您的法器订单已建立（单号：${resData.orderId}）。天命大师将为您亲自加持并开光，我们将在24小时内通过1688物流体系直邮发货，您的五行磁场即将得到调和与圆满。`
-                        : `Thank you for your trust. Your talisman order (${resData.orderId}) has been successfully created. Master TianMing will personally consecrate it, and it will be dispatched within 24 hours.`;
+                        ? `感谢您的信任。您的法器订单已建立（单号：${resData.orderId}）。天命大师将为您亲自加持并开光，我们将在24小时内通过官方国际物流直邮发货，您的五行磁场即将得到调和与圆满。`
+                        : `Thank you for your trust. Your talisman order (${resData.orderId}) has been successfully created. Master TianMing will personally consecrate it, and it will be dispatched within 24 hours via official logistics.`;
                     
                     const trackingText = currentLang === 'zh'
-                        ? `物流运单号：${resData.trackingId} (1688一键代发已同步)`
-                        : `Logistic Tracking ID: ${resData.trackingId} (dropship synchronized)`;
+                        ? `物流运单号：${resData.trackingId} (官方物流配送)`
+                        : `Logistic Tracking ID: ${resData.trackingId} (Official Delivery)`;
                     
                     document.getElementById('talisman-success-text').textContent = successText;
                     document.getElementById('talisman-tracking-text').textContent = trackingText;
