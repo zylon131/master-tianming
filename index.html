@@ -86,42 +86,99 @@
 
         <section id="shop" style="padding: 4rem 0;">
             <h2 style="text-align: center; font-family: var(--font-serif); margin-bottom: 3rem; font-size: 2rem;" class="i18n" data-key="shop_title">The Sacred Collection</h2>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem;">
+            <div class="shop-grid">
                 <!-- Product 1 -->
-                <div style="text-align: center;">
-                    <div style="aspect-ratio: 1; background: #eee; margin-bottom: 1rem; position: relative;">
-                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #aaa; font-size: 0.8rem;">[Lucky Bracelet $69]</div>
+                <div class="shop-card">
+                    <div class="img-container">
+                        <img src="talisman_water.png" alt="Harmonizer Bead" class="product-img">
                     </div>
-                    <h4 class="i18n" data-key="p1_name" style="font-size: 0.95rem;">Harmonizer Bead</h4>
-                    <p style="color: #666; font-size: 0.75rem; margin-bottom: 0.3rem;">$129.00</p>
-                    <p style="color: var(--cinnabar); font-weight: bold; font-size: 0.9rem;">$69.00 (Sale)</p>
+                    <h4 class="i18n" data-key="p1_name" style="font-size: 0.95rem; margin-bottom: 0.5rem;">Harmonizer Bead</h4>
+                    <p style="color: #666; font-size: 0.75rem; text-decoration: line-through; margin-bottom: 0.2rem;">$129.00</p>
+                    <p style="color: var(--cinnabar); font-weight: bold; font-size: 1rem; margin-bottom: 1rem;">$69.00 (Sale)</p>
+                    <button class="btn btn-primary btn-buy-now i18n" data-key="btn_buy_now" data-product="water" data-price="$69.00" data-name-en="Harmonizer Bead" data-name-zh="五行调和开运水晶 (水)" data-img="talisman_water.png" style="padding: 0.6rem 1rem; font-size: 0.7rem; margin-top: auto; border-radius: 50px;">Buy Now</button>
                 </div>
                 <!-- Product 2 -->
-                <div style="text-align: center;">
-                    <div style="aspect-ratio: 1; background: #eee; margin-bottom: 1rem; position: relative;">
-                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #aaa; font-size: 0.8rem;">[Zen Masterpiece $129]</div>
+                <div class="shop-card">
+                    <div class="img-container">
+                        <img src="talisman_wood.png" alt="Zen Masterpiece" class="product-img">
                     </div>
-                    <h4 class="i18n" data-key="p2_name" style="font-size: 0.95rem;">Zen Masterpiece</h4>
-                    <p style="color: var(--cinnabar); font-weight: bold; font-size: 0.9rem;">$129.00</p>
+                    <h4 class="i18n" data-key="p2_name" style="font-size: 0.95rem; margin-bottom: 0.5rem;">Zen Masterpiece</h4>
+                    <p style="color: var(--cinnabar); font-weight: bold; font-size: 1rem; margin-bottom: 1.6rem;">$129.00</p>
+                    <button class="btn btn-primary btn-buy-now i18n" data-key="btn_buy_now" data-product="wood" data-price="$129.00" data-name-en="Zen Masterpiece" data-name-zh="禅意安神绿檀木佛珠 (木)" data-img="talisman_wood.png" style="padding: 0.6rem 1rem; font-size: 0.7rem; margin-top: auto; border-radius: 50px;">Buy Now</button>
                 </div>
                 <!-- Product 3 -->
-                <div style="text-align: center;">
-                    <div style="aspect-ratio: 1; background: #eee; margin-bottom: 1rem; position: relative;">
-                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #aaa; font-size: 0.8rem;">[Elite Totem $199]</div>
+                <div class="shop-card">
+                    <div class="img-container">
+                        <img src="talisman_metal.png" alt="Guardian Totem" class="product-img">
                     </div>
-                    <h4 class="i18n" data-key="p3_name" style="font-size: 0.95rem;">Guardian Totem</h4>
-                    <p style="color: var(--cinnabar); font-weight: bold; font-size: 0.9rem;">$199.00</p>
+                    <h4 class="i18n" data-key="p3_name" style="font-size: 0.95rem; margin-bottom: 0.5rem;">Guardian Totem</h4>
+                    <p style="color: var(--cinnabar); font-weight: bold; font-size: 1rem; margin-bottom: 1.6rem;">$199.00</p>
+                    <button class="btn btn-primary btn-buy-now i18n" data-key="btn_buy_now" data-product="metal" data-price="$199.00" data-name-en="Guardian Totem" data-name-zh="辟邪消灾黑曜石手链 (金)" data-img="talisman_metal.png" style="padding: 0.6rem 1rem; font-size: 0.7rem; margin-top: auto; border-radius: 50px;">Buy Now</button>
                 </div>
                 <!-- Product 4 -->
-                <div style="text-align: center;">
-                    <div style="aspect-ratio: 1; background: #eee; margin-bottom: 1rem; position: relative; border: 1px solid var(--gold);">
-                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--gold); font-size: 0.8rem;">[Consecrated Relic $1,299]</div>
+                <div class="shop-card featured">
+                    <div class="img-container">
+                        <img src="talisman_earth.png" alt="Imperial Legacy" class="product-img">
                     </div>
-                    <h4 class="i18n" data-key="p4_name" style="font-size: 0.95rem;">Imperial Legacy</h4>
-                    <p style="color: var(--gold); font-weight: bold; font-size: 0.9rem;">$1,299.00</p>
+                    <h4 class="i18n" data-key="p4_name" style="font-size: 0.95rem; margin-bottom: 0.5rem;">Imperial Legacy</h4>
+                    <p style="color: var(--gold); font-weight: bold; font-size: 1rem; margin-bottom: 1.6rem;">$1,299.00</p>
+                    <button class="btn btn-primary btn-buy-now i18n" data-key="btn_buy_now" data-product="earth" data-price="$1,299.00" data-name-en="Imperial Legacy" data-name-zh="厚土聚财招财黄水晶 (土)" data-img="talisman_earth.png" style="padding: 0.6rem 1rem; font-size: 0.7rem; margin-top: auto; border-radius: 50px; background: var(--gold);">Buy Now</button>
                 </div>
             </div>
         </section>
+    </div>
+
+    <!-- Direct Talisman Checkout Modal -->
+    <div id="talisman-modal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="modal-close" id="modal-close-btn">&times;</span>
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                <h3 id="modal-title" style="font-family: var(--font-serif); font-size: 1.6rem; color: var(--cinnabar); margin-bottom: 0.5rem;">Talisman Checkout</h3>
+                <p id="modal-price" style="font-size: 1.2rem; font-weight: bold; color: var(--gold);">$69.00 USD</p>
+            </div>
+            
+            <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem; background: rgba(0,0,0,0.02); padding: 1rem; border-radius: 6px; border: 1px dashed rgba(0,0,0,0.1);">
+                <img id="modal-img" src="talisman_water.png" alt="Product Image" style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <div>
+                    <h4 id="modal-product-name" style="font-size: 0.95rem; font-weight: bold;">Product Name</h4>
+                    <p style="font-size: 0.75rem; color: #666; margin-top: 4px;" class="i18n" data-key="dropship_desc">Fitted with direct 1688 dropshipping shipping. Free delivery within 7-14 days.</p>
+                </div>
+            </div>
+
+            <form id="modal-checkout-form">
+                <div style="margin-bottom: 1rem;">
+                    <label class="i18n" data-key="label_name" style="display: block; font-size: 0.8rem; margin-bottom: 0.3rem; font-weight: 600;">Full Name</label>
+                    <input type="text" id="modal-fullname" class="modal-input i18n" data-key="placeholder_name" required placeholder="John Doe">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 0.8rem; margin-bottom: 0.3rem; font-weight: 600;">Email</label>
+                    <input type="email" id="modal-email" class="modal-input" required placeholder="john@example.com">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 0.8rem; margin-bottom: 0.3rem; font-weight: 600;" class="i18n" data-key="label_phone">Phone Number</label>
+                    <input type="tel" id="modal-phone" class="modal-input i18n" data-key="placeholder_phone" required placeholder="+1 123 456 7890">
+                </div>
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-size: 0.8rem; margin-bottom: 0.3rem; font-weight: 600;" class="i18n" data-key="label_address">Shipping Address</label>
+                    <textarea id="modal-address" class="modal-input i18n" data-key="placeholder_address" required style="resize: vertical; min-height: 60px;" placeholder="Street address, City, State, ZIP, Country"></textarea>
+                </div>
+
+                <div id="modal-error" style="color: var(--cinnabar); font-size: 0.8rem; margin-bottom: 1rem; display: none;"></div>
+
+                <button type="submit" class="btn btn-primary i18n" data-key="btn_pay" id="modal-submit-btn" style="width: 100%; border-radius: 50px;">Complete Payment</button>
+            </form>
+
+            <div id="modal-success" style="display: none; text-align: center; padding: 1.5rem 0;">
+                <div style="font-size: 3rem; color: #2e7d32; margin-bottom: 1rem;">✓</div>
+                <h4 style="font-family: var(--font-serif); font-size: 1.4rem; color: #2e7d32; margin-bottom: 0.5rem;" class="i18n" data-key="order_success">Purchase Successful!</h4>
+                <p style="font-size: 0.85rem; color: #555; margin-bottom: 1.5rem;" class="i18n" data-key="order_success_desc">Your payment has been completed. The product will be shipped directly via 1688 dropshipping.</p>
+                <div style="background: rgba(0,0,0,0.03); padding: 1rem; border-radius: 6px; border: 1px solid rgba(0,0,0,0.05); text-align: left; margin-bottom: 1.5rem;">
+                    <p style="font-size: 0.8rem; font-weight: bold; color: var(--gold);" id="modal-tracking-id">Tracking ID: MTM-83748291</p>
+                    <p style="font-size: 0.75rem; color: #666; margin-top: 4px;" class="i18n" data-key="delivery_est">Estimated delivery: 7-14 business days. A tracking link has been sent to your email.</p>
+                </div>
+                <button class="btn btn-secondary" id="modal-done-btn" style="border-radius: 50px; width: 100%;">Close</button>
+            </div>
+        </div>
     </div>
 
     <footer>

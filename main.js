@@ -52,7 +52,17 @@ const translations = {
         f1_m: "Personal Review by Master",
         f2_m: "Deep Lifetime Fate Analysis",
         f3_m: "5-Year Auspicious Calendar",
-        f4_m: "Spiritual Ritual Advice"
+        f4_m: "Spiritual Ritual Advice",
+        btn_buy_now: "Buy Now",
+        dropship_desc: "Fitted with direct 1688 dropshipping shipping. Free delivery within 7-14 days.",
+        label_phone: "Phone Number",
+        label_address: "Shipping Address",
+        order_success: "Purchase Successful!",
+        order_success_desc: "Your payment has been completed. The product will be shipped directly via 1688 dropshipping.",
+        delivery_est: "Estimated delivery: 7-14 business days. A tracking link has been sent to your email.",
+        placeholder_phone: "+1 123 456 7890",
+        placeholder_address: "Street Address, City, State, ZIP, Country",
+        btn_pay: "Complete Payment"
     },
     zh: {
         nav_start: "开始测算",
@@ -105,7 +115,17 @@ const translations = {
         f1_m: "大师逐字起草私密测算",
         f2_m: "终身大运起伏与前世业力",
         f3_m: "黄金五年吉凶宜忌预测",
-        f4_m: "灵性层面的高级开运阵法"
+        f4_m: "灵性层面的高级开运阵法",
+        btn_buy_now: "立即结缘",
+        dropship_desc: "经由 1688 直接发货，7-14天免费送达。",
+        label_phone: "联系电话",
+        label_address: "收货地址",
+        order_success: "结缘成功！",
+        order_success_desc: "您的付款已完成。商品将通过 1688 直接代发邮寄给您。",
+        delivery_est: "预计送达时间：7-14个工作日。物流单号已发送至您的邮箱。",
+        placeholder_phone: "您的收货联系电话，用于接收短信",
+        placeholder_address: "详细的邮寄地址，例如：XX省XX市XX区XX街道XX号",
+        btn_pay: "确认付款"
     }
 };
 
@@ -403,7 +423,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     }
-
     // 6. Tier Selection Fallback (Index Page)
     const priceBtns = document.querySelectorAll('.price-card .btn');
     priceBtns.forEach(btn => {
@@ -415,6 +434,100 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     });
+
+    // 7. Direct Talisman Checkout Modal Logic
+    const buyNowBtns = document.querySelectorAll('.btn-buy-now');
+    const talismanModal = document.getElementById('talisman-modal');
+    const modalCloseBtn = document.getElementById('modal-close-btn');
+    const modalDoneBtn = document.getElementById('modal-done-btn');
+    const modalCheckoutForm = document.getElementById('modal-checkout-form');
+    const modalSuccess = document.getElementById('modal-success');
+
+    if (talismanModal && buyNowBtns.length > 0) {
+        let activeProduct = '';
+        let activePrice = '';
+        let activeProductName = '';
+
+        buyNowBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                activeProduct = btn.dataset.product;
+                activePrice = btn.dataset.price;
+                activeProductName = currentLang === 'zh' ? btn.dataset.nameZh : btn.dataset.nameEn;
+                const imgUrl = btn.dataset.img;
+
+                // Update modal details
+                document.getElementById('modal-title').innerText = currentLang === 'zh' ? '结缘开运法器' : 'Talisman Checkout';
+                document.getElementById('modal-price').innerText = activePrice + ' USD';
+                document.getElementById('modal-img').src = imgUrl;
+                document.getElementById('modal-product-name').innerText = activeProductName;
+
+                // Reset form and views
+                modalCheckoutForm.reset();
+                modalCheckoutForm.style.display = 'block';
+                modalSuccess.style.display = 'none';
+                document.getElementById('modal-error').style.display = 'none';
+                talismanModal.style.display = 'flex';
+            });
+        });
+
+        // Close modal handlers
+        const closeModal = () => {
+            talismanModal.style.display = 'none';
+        };
+        if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
+        if (modalDoneBtn) modalDoneBtn.addEventListener('click', closeModal);
+        window.addEventListener('click', (e) => {
+            if (e.target === talismanModal) closeModal();
+        });
+
+        // Submit form handler
+        if (modalCheckoutForm) {
+            modalCheckoutForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const submitBtn = document.getElementById('modal-submit-btn');
+                const origText = submitBtn.innerText;
+                submitBtn.innerText = currentLang === 'zh' ? '正在处理付款...' : 'Processing Payment...';
+                submitBtn.disabled = true;
+
+                const orderId = 'MTM-' + Math.floor(Math.random() * 90000000 + 10000000);
+                const fullName = document.getElementById('modal-fullname').value;
+                const email = document.getElementById('modal-email').value;
+                const phoneNumber = document.getElementById('modal-phone').value;
+                const shippingAddress = document.getElementById('modal-address').value;
+
+                try {
+                    const response = await fetch('/api/buy-talisman', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            orderId,
+                            lackingElement: activeProduct,
+                            talismanName: activeProductName,
+                            price: activePrice,
+                            fullName,
+                            email,
+                            shippingAddress,
+                            phoneNumber
+                        })
+                    });
+
+                    if (!response.ok) throw new Error("Fulfillment failed.");
+
+                    // Show success
+                    document.getElementById('modal-tracking-id').innerText = `${currentLang === 'zh' ? '订单号' : 'Order ID'}: ${orderId}`;
+                    modalCheckoutForm.style.display = 'none';
+                    modalSuccess.style.display = 'block';
+                } catch (err) {
+                    const errDiv = document.getElementById('modal-error');
+                    errDiv.innerText = currentLang === 'zh' ? '付款失败，请重试。' : 'Payment failed, please try again.';
+                    errDiv.style.display = 'block';
+                } finally {
+                    submitBtn.innerText = origText;
+                    submitBtn.disabled = false;
+                }
+            });
+        }
+    }
 });
 
 function initPricing() {
