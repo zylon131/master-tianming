@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign in - Google Accounts</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f0f4f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: #1f1f1f;
+        }
+        .oauth-card {
+            background: #ffffff;
+            border-radius: 28px;
+            width: 100%;
+            max-width: 450px;
+            padding: 40px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e3e3e3;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            transition: all 0.3s ease;
+        }
+        .logo-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+        .google-logo {
+            width: 75px;
+            height: 24px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .header h1 {
+            font-size: 24px;
+            font-weight: 400;
+            margin-bottom: 8px;
+            color: #1f1f1f;
+        }
+        .header p {
+            font-size: 16px;
+            color: #444746;
+        }
+        .account-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            background-color: #e3e3e3;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 24px;
+            border: 1px solid #e3e3e3;
+        }
+        .account-item {
+            background: #ffffff;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            cursor: pointer;
+            border: none;
+            width: 100%;
+            text-align: left;
+            transition: background 0.2s ease;
+        }
+        .account-item:hover {
+            background: #f7f9fc;
+        }
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            font-size: 16px;
+            color: #ffffff;
+            text-transform: uppercase;
+        }
+        .avatar-t { background-color: #b38f4d; }
+        .avatar-g { background-color: #a82e2e; }
+        .avatar-custom { background-color: #1565c0; }
+        
+        .account-details {
+            flex-grow: 1;
+        }
+        .account-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #1f1f1f;
+        }
+        .account-email {
+            font-size: 12px;
+            color: #444746;
+            margin-top: 2px;
+        }
+        .custom-form {
+            display: none;
+            flex-direction: column;
+            gap: 16px;
+            margin-top: 8px;
+            animation: fadeIn 0.3s ease;
+        }
+        .form-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .form-input-group label {
+            font-size: 12px;
+            font-weight: 500;
+            color: #444746;
+        }
+        .form-text-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #747775;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border 0.2s ease;
+        }
+        .form-text-input:focus {
+            border: 2px solid #0b57d0;
+            padding: 11px 15px;
+        }
+        .btn-submit {
+            background-color: #0b57d0;
+            color: #ffffff;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 100px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            align-self: flex-end;
+            margin-top: 8px;
+            transition: background-color 0.2s ease;
+        }
+        .btn-submit:hover {
+            background-color: #0842a0;
+        }
+        .footer-terms {
+            font-size: 12px;
+            color: #5e5e5e;
+            line-height: 1.6;
+            margin-top: auto;
+            text-align: center;
+        }
+        .footer-terms a {
+            color: #0b57d0;
+            text-decoration: none;
+        }
+        .footer-terms a:hover {
+            text-decoration: underline;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="oauth-card">
+        <div class="logo-container">
+            <!-- Simulated Google Logo SVG -->
+            <svg class="google-logo" viewBox="0 0 74 24" xmlns="http://www.w3.org/2000/svg">
+                <path fill="#ea4335" d="M12.24 10.285V7.476H21.8c.11.53.18 1.14.18 1.83 0 2.21-.6 4.39-1.8 6.03a8.9 8.9 0 0 1-4.7 3.32v2.85h-3.57v-2.85a9.23 9.23 0 0 1-5.18-3.76l2.85-2.22c.78 1.34 2.1 2.22 3.65 2.22 2.2 0 3.73-1.42 3.73-3.64 0-.31-.03-.6-.09-.88h-4.63Z"/>
+                <path fill="#fbbc05" d="M30 14c0 3.31-2.69 6-6 6s-6-2.69-6-6 2.69-6 6-6 6 2.69 6 6m-2.66 0c0-1.87-1.49-3.34-3.34-3.34S20.66 12.13 20.66 14s1.49 3.34 3.34 3.34S27.34 15.87 27.34 14"/>
+                <path fill="#ea4335" d="M43 14c0 3.31-2.69 6-6 6s-6-2.69-6-6 2.69-6 6-6 6 2.69 6 6m-2.66 0c0-1.87-1.49-3.34-3.34-3.34S33.66 12.13 33.66 14s1.49 3.34 3.34 3.34S40.34 15.87 40.34 14"/>
+                <path fill="#4285f4" d="M55.5 8.35v10.93a5.55 5.55 0 0 1-5.55 5.55c-1.82 0-3.39-.93-4.29-2.35l2.42-1c.54.85 1.15 1.35 1.87 1.35 1.25 0 1.95-.77 1.95-2.22v-.93h-.08a3.9 3.9 0 0 1-3.23 1.57c-2.3 0-4.32-1.92-4.32-4.25s2.02-4.25 4.32-4.25c1.4 0 2.58.63 3.23 1.57h.08v-1.17h3.42m-2.69 5.65c0-1.87-1.49-3.34-3.34-3.34s-3.34 1.47-3.34 3.34 1.49 3.34 3.34 3.34 3.34-1.47 3.34-3.34"/>
+                <path fill="#34a853" d="M59 1v19h-3.34V1z"/>
+                <path fill="#ea4335" d="M68.5 16.5c-1 0-1.74-.47-2.24-1.29l5.65-2.34-.19-.48c-.46-1.25-1.9-3.39-4.57-3.39-2.68 0-4.83 2.12-4.83 4.95 0 2.8 2.12 4.95 5.08 4.95 2.39 0 3.76-1.46 4.34-2.32l-2.83-1.89c-.33.48-.77.82-1.42.82m-.18-5.32c.77 0 1.41.38 1.63.97l-3.92 1.62c0-1.63 1.15-2.59 2.29-2.59"/>
+            </svg>
+        </div>
+
+        <div class="header">
+            <h1>Sign in</h1>
+            <p>to continue to TianMing</p>
+        </div>
+
+        <div class="account-list" id="account-list-div">
+            <button class="account-item" id="btn-tester-account">
+                <div class="avatar avatar-t">T</div>
+                <div class="account-details">
+                    <div class="account-name">TianMing Tester</div>
+                    <div class="account-email">tianming.tester@gmail.com</div>
+                </div>
+            </button>
+            
+            <button class="account-item" id="btn-guest-account">
+                <div class="avatar avatar-g">G</div>
+                <div class="account-details">
+                    <div class="account-name">Fortune Guest</div>
+                    <div class="account-email">guest.fortune@gmail.com</div>
+                </div>
+            </button>
+
+            <button class="account-item" id="btn-show-custom">
+                <div class="avatar avatar-custom" style="background-color: #747775;">+</div>
+                <div class="account-details">
+                    <div class="account-name" style="color: #0b57d0;">Use another account</div>
+                    <div class="account-email">Sign in with a custom Google email</div>
+                </div>
+            </button>
+        </div>
+
+        <!-- Custom Account Sign-in Form -->
+        <form class="custom-form" id="custom-signin-form">
+            <div class="form-input-group">
+                <label for="custom-name">Full Name</label>
+                <input type="text" id="custom-name" class="form-text-input" placeholder="e.g. John Doe" required>
+            </div>
+            <div class="form-input-group">
+                <label for="custom-email">Google Email Address</label>
+                <input type="email" id="custom-email" class="form-text-input" placeholder="e.g. john.doe@gmail.com" required>
+            </div>
+            <button type="submit" class="btn-submit">Continue</button>
+        </form>
+
+        <div class="footer-terms">
+            To continue, Google will share your name, email address, and profile picture with TianMing. See TianMing's <a href="#">Privacy Policy</a> and <a href="#">Terms of Service</a>.
+        </div>
+    </div>
+
+    <script>
+        function sendAuthSuccess(email, name) {
+            const googleId = "g_" + Math.random().toString(36).substring(2, 11);
+            const payload = {
+                type: 'google-auth-success',
+                googleId: googleId,
+                email: email,
+                name: name,
+                picture: 'https://lh3.googleusercontent.com/a/default-user=s96-c'
+            };
+            
+            // Post message back to parent window
+            if (window.opener) {
+                window.opener.postMessage(payload, '*');
+            }
+            window.close();
+        }
+
+        document.getElementById('btn-tester-account').addEventListener('click', () => {
+            sendAuthSuccess('tianming.tester@gmail.com', 'TianMing Tester');
+        });
+
+        document.getElementById('btn-guest-account').addEventListener('click', () => {
+            sendAuthSuccess('guest.fortune@gmail.com', 'Fortune Guest');
+        });
+
+        document.getElementById('btn-show-custom').addEventListener('click', () => {
+            document.getElementById('account-list-div').style.display = 'none';
+            document.getElementById('custom-signin-form').style.display = 'flex';
+        });
+
+        document.getElementById('custom-signin-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('custom-email').value.trim();
+            const name = document.getElementById('custom-name').value.trim();
+            sendAuthSuccess(email, name);
+        });
+    </script>
+</body>
+</html>

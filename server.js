@@ -1,7 +1,8 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const dotenv = require('dotenv');
-const { Solar } = require('lunar-javascript');
+const { Solar, Lunar } = require('lunar-javascript');
 
 // Load environment variables
 dotenv.config();
@@ -13,12 +14,30 @@ app.use(express.json());
 // Serve static frontend files
 app.use(express.static(__dirname));
 
-// Mapping pricing tiers to Lemon Squeezy Variant IDs
-const TIER_VARIANTS = {
-    essential: process.env.LEMON_SQUEEZY_VARIANT_ESSENTIAL || 'mock_variant_essential',
-    deluxe: process.env.LEMON_SQUEEZY_VARIANT_DELUXE || 'mock_variant_deluxe',
-    master: process.env.LEMON_SQUEEZY_VARIANT_MASTER || 'mock_variant_master'
-};
+const USERS_FILE = path.join(__dirname, 'users.json');
+
+// Helper: Read users database
+function readUsers() {
+    if (!fs.existsSync(USERS_FILE)) {
+        fs.writeFileSync(USERS_FILE, '[]', 'utf8');
+        return [];
+    }
+    try {
+        return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    } catch (e) {
+        console.error("Error reading users:", e);
+        return [];
+    }
+}
+
+// Helper: Write users database
+function writeUsers(users) {
+    try {
+        fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 4), 'utf8');
+    } catch (e) {
+        console.error("Error writing users:", e);
+    }
+}
 
 // Helper: Calculate Bazi & elements
 function calculateBazi(dob, tob) {
@@ -26,724 +45,599 @@ function calculateBazi(dob, tob) {
     const hour = tob === 'unknown' ? 12 : parseInt(tob);
     const solar = Solar.fromYmdHms(date.getFullYear(), date.getMonth() + 1, date.getDate(), hour, 0, 0);
     const lunar = solar.getLunar();
+    
+    // BaZi contains [yearPillar, monthPillar, dayPillar, hourPillar]
+    const pillars = lunar.getBaZi(); 
+    const elements = lunar.getBaZiWuXing();
+    const dayMasterElement = elements[2][0]; // Day Master Stem element (金/木/水/火/土)
+    
     return {
-        pillars: lunar.getBaZi(),
-        elements: lunar.getBaZiWuXing(),
-        dayMasterElement: lunar.getBaZiWuXing()[2][0]
+        pillars,
+        elements,
+        dayMasterElement
     };
 }
 
-// Helper: Call DeepSeek to generate Bazi Destiny Report
-async function generateDestinyReport(userData, baziData, tier, lang) {
-    const systemPrompt = lang === 'zh' 
-        ? `你现在是"天命大师 (Master TianMing)"，一位精通《渊海子平》、《三命通会》、《滴天髓》及《神峰通考》的易学宗师。你擅长将深奥的东方易理（如五行生克、十神格局、喜忌用神、大运流年）与现代人生智慧相结合，以极具禅意、文学美感且穿透人心的文风进行批命。请严格使用 HTML 格式输出（仅限 h3, p, strong, ul, li 标签），不要包含任何 markdown 块（例如 html 标签）。绝不以 AI 的身份说话，保持高深的宗师语气。用词典雅高妙，既有命运玄机的神秘感，又有切实的人生指引。`
-        : `You are "Master TianMing", a legendary Grandmaster of Eastern Metaphysics, specializing in the Four Pillars of Destiny (Bazi), I Ching, and Feng Shui. You weave ancient Taoist wisdom (Five Elements interaction, Ten Gods, Heavenly Stems and Earthly Branches, clashes and combinations) with modern life coaching. Your style is deeply poetic, mystical, and authoritative. Output ONLY beautifully formatted HTML using ONLY h3, p, strong, ul, li tags. Do not wrap in markdown code blocks. Never break character. Speak as an absolute grandmaster. Be deeply insightful, poetic, yet highly practical in your advice.`;
-
-    let tierInstructions = '';
-    if (tier === 'essential') {
-        tierInstructions = lang === 'zh' ? `
-            【精简版 - 精简排盘 ($19)】
-            请按照以下模块生成命理报告：
-            <h3>一、八字局势与日元本性</h3>
-            <p>分析日元（日干）的五行属性与阴阳，解读命主的基本命运性格格局（如身强身弱、格局特点）。</p>
-            <h3>二、五行能量强弱占比</h3>
-            <p>精确剖析金、木、水、火、土的能量占比，指出原局中偏旺的五行与缺失/薄弱的五行。</p>
-            <h3>三、事业乾坤与财运机缘</h3>
-            <p>详细分析命主的财官运势，揭示当下的事业机遇、财富流向及潜在阻碍。</p>
-            <h3>四、五行调和与开运方位</h3>
-            <p>提供日常开运指南（如开运颜色、有利的地理方位）。
-            字数要求：400-500字左右。`
-        : `
-            [Essential Insight ($19)]
-            Generate the reading using this exact structure:
-            <h3>I. Bazi Chart & Day Master Essence</h3>
-            <p>Analyze the Day Master (element and polarity) and the general layout of the chart, detailing personality and fundamental soul traits.</p>
-            <h3>II. Five Elements Quantification</h3>
-            <p>Examine the balance of Metal, Wood, Water, Fire, and Earth. Highlight dominant elements and any elements that are deficient or missing.</p>
-            <h3>III. Career Path & Wealth Flow</h3>
-            <p>Analyze their career potentials and wealth opportunities, revealing imminent milestones or challenges.</p>
-            <h3>IV. Harmonic Lifestyle & Color Guidance</h3>
-            <p>Provide daily luck alignment tips (favorable colors, auspicious geographical directions).
-            Length: 400-500 words.`;
-    } else if (tier === 'deluxe') {
-        tierInstructions = lang === 'zh' ? `
-            【升级版 - 守护之径 ($129)】
-            本级别必须完全覆盖并升级【精简排盘】的所有内容，并追加深度推演。请按以下结构生成：
-            <h3>一、八字局势与日元本性</h3>
-            <p>精细分析日主身强身弱、十神格局。</p>
-            <h3>二、五行能量强弱占比</h3>
-            <p>精细分析五行盛衰，指明喜忌用神。</p>
-            <h3>三、事业乾坤与财富大势</h3>
-            <p>深度解说工作官运与求财方向。</p>
-            <h3>四、姻缘桃花与夫妻宫详批</h3>
-            <p>分析命主的婚姻宫状态、正缘的喜忌、桃花运势及适合的婚配或正缘出现的时机。</p>
-            <h3>五、流年未来三年运势详批</h3>
-            <p>逐年剖析接下来的流年大势（第一年、第二年、第三年），指明每年的运势重点、吉凶机遇。</p>
-            <h3>六、专属本命手链与开运调和建议</h3>
-            <p>根据命主的用神与缺失五行，提出专属于命主的五行手链推荐（如材质、水晶或玉石种类）以调和五行磁场，并给出开运色与方位。
-            字数要求：800-1000字。`
-        : `
-            [Guardian's Path ($129)]
-            This tier must fully cover and upgrade all Essential topics, adding detailed romantic and flow forecasts. Structure as follows:
-            <h3>I. Bazi Chart & Day Master Essence</h3>
-            <p>In-depth analysis of Day Master strength, chart configuration, and dominant Ten Gods.</p>
-            <h3>II. Five Elements Balance & Favorable Elements</h3>
-            <p>Deep evaluation of elemental harmony, identifying the Favorable Element (Yong Shen) and Unfavorable Element (Ji Shen).</p>
-            <h3>III. Career Mastery & Wealth Accumulation</h3>
-            <p>Detailed pathways to success, advising on industries, strategies, and financial traps.</p>
-            <h3>IV. Marriage Palace & Romantic Karma</h3>
-            <p>Detailed analysis of the Spouse Palace, Peach Blossom luck, marriage timeline, and qualities of their true partner.</p>
-            <h3>V. 3-Year Annual Flow Forecast</h3>
-            <p>Year-by-year analysis for the next 3 years, highlighting specific opportunities, challenges, and life themes.</p>
-            <h3>VI. Sacred Talisman & Harmony Recommendations</h3>
-            <p>Based on their chart, explicitly recommend a specific custom Five Elements bracelet/talisman (specifying materials, crystal, or bead types) to balance their energies, along with favorable colors/directions.
-            Length: 800-1000 words.`;
-    } else {
-        tierInstructions = lang === 'zh' ? `
-            【至尊版 - 大师私测 ($299)】
-            这是最高规格的宗师级私密推演。必须完全覆盖并超越所有低级别服务（包含原局、五行盛衰、事业财运、姻缘桃花、本命手链推荐），并以极具穿透力、点拨弟子的语气展开。结构要求如下：
-            <h3>一、宗师印授：元神格局总纲</h3>
-            <p>以宏大的命运格局高度剖析命主的八字原局、日主根基及神煞格局。</p>
-            <h3>二、五行消长与喜忌神精判</h3>
-            <p>终极判定用神、喜神、忌神、闲神，解析五行盛衰对命理根基的影响。</p>
-            <h3>三、财官双美：一生事业财富轨迹</h3>
-            <p>描绘一生事业与财富的巅峰期与低谷期，给予行业定位建议。</p>
-            <h3>四、三生石畔：姻缘业力与正缘详批</h3>
-            <p>深度剖析情感羁绊、婚姻官禄、配偶助益及宿世宿命姻缘。</p>
-            <h3>五、终身行运：大运十年起伏推演</h3>
-            <p>批导命主一生的十年大运走向，点明当前及未来核心大运的转变与关隘。</p>
-            <h3>六、黄金流年：未来五年吉凶宜忌流年通关</h3>
-            <p>详批未来五年的运势（第一年至第五年），详细指出每年的吉凶转折、重大决策点（如跳槽、投资、合伙等）及宜忌指南。</p>
-            <h3>七、专属本命开运手链法器推荐</h3>
-            <p>根据五行，点明命主最急需补足的“命门五行”，明确推荐专属于其用神调和的本命手链法器（指出材质与配珠）。</p>
-            <h3>八、秘传风水阵法与灵性修行仪式</h3>
-            <p>提供针对命主个人住宅/办公室的独家风水调整方案（如青龙白虎位布局）、净化磁场的静心冥想或开运仪式，助力冲破当下瓶颈。
-            字数要求：1200字以上，极尽详实，字字千金。`
-        : `
-            [Master's Revelation ($299)]
-            This is the ultimate grandmaster reading. It must fully cover, integrate, and expand on all services from lower tiers (Chart essence, elements balance, career/wealth, romantic palace, and custom bracelet recommendation) in complete detail. Adopt an authoritative, deeply spiritual, and personal master tone. Structure as follows:
-            <h3>I. Grandmaster's Decree: Day Master & Chart Structure</h3>
-            <p>A comprehensive analysis of the soul's baseline, Day Master strength, and core spiritual destiny configuration.</p>
-            <h3>II. Elemental Balance & Favorable/Unfavorable Elements</h3>
-            <p>Ultimate determination of the Favorable Element (Yong Shen), Favorable God (Xi Shen), and Unfavorable God (Ji Shen) with elemental interactions.</p>
-            <h3>III. Career Destiny & Wealth Lifeline</h3>
-            <p>A lifetime map of professional ascents, financial peaks, career paths, and industries that match their charts.</p>
-            <h3>IV. Marriage Palace & Romantic Karma</h3>
-            <p>Deep analysis of their relationship palace, karmic romantic connections, spouse profiles, and timing for positive relationship milestones.</p>
-            <h3>V. Lifetime major Cycles: 10-Year Luck Pillars</h3>
-            <p>Analysis of their current and future 10-year major luck pillars, explaining how their life path evolves through decades.</p>
-            <h3>VI. 5-Year Detailed Auspicious Calendar</h3>
-            <p>Year-by-year forecast for the next 5 years, highlighting specific pivotal moments, financial moves, and exact dos/don'ts for each year.</p>
-            <h3>VII. Custom Lucky Bracelet & Talisman Empowerment</h3>
-            <p>Explicate the exact deficient element and recommend a custom-designed elemental bracelet/talisman (details on crystal, metals, and bead properties) for balancing energy.</p>
-            <h3>VIII. Esoteric Feng Shui Layout & Spiritual Ritual</h3>
-            <p>Provide a personalized home/office Feng Shui layout advice (directions, placements) and a daily spiritual practice (meditation, affirmation, or physical ritual) to dissolve blocks.
-            Length: 1200+ words. Extensive, profound, and deeply personalized.`;
-    }
-
-    const genderStr = lang === 'zh' 
-        ? (userData.gender === 'male' ? '男 (乾造)' : '女 (坤造)')
-        : (userData.gender === 'male' ? 'Male' : 'Female');
-
-    const userPrompt = `
-        Client Profile / 命主信息:
-        Name / 姓名: ${userData.fullname}
-        Gender / 性别: ${genderStr}
-        Bazi Pillars / 八字: ${baziData.pillars.join(' ')}
-        Five Elements / 五行: ${baziData.elements.join(' ')}
-        Day Master / 日主: ${baziData.dayMasterElement}
+// Helper: Daily Fortune generator based on lunar algorithm
+function getDailyFortuneData(dateStr, dob, tob) {
+    const parts = dateStr.split('-');
+    const year = parseInt(parts[0]);
+    const month = parseInt(parts[1]);
+    const day = parseInt(parts[2]);
+    const solar = Solar.fromYmd(year, month, day);
+    const lunar = solar.getLunar();
+    
+    const ganzhi = lunar.getDayInGanZhi(); // e.g. "乙未"
+    const stem = ganzhi[0];
+    const branch = ganzhi[1];
+    const nayin = lunar.getDayNaYin(); // e.g. "沙中金"
+    
+    const yi = lunar.getDayYi(); 
+    const ji = lunar.getDayJi(); 
+    
+    let score = "中"; 
+    let theme = "踏实稳健，静观其变";
+    let detailsZh = "今日流日磁场温和，适合稳健前行，凡事不宜操之过急。";
+    let detailsEn = "Today's energy is gentle and stable. Suitable for steady progress, avoid rushing.";
+    
+    if (dob) {
+        const bazi = calculateBazi(dob, tob);
+        const dm = bazi.dayMasterElement; // e.g. "金", "木"...
+        const dayWuXing = lunar.getBaZiWuXing()[2][0]; // day pillar element, e.g. "木"
         
-        Strict Instructions / 严格要求:
-        ${tierInstructions}
+        const relations = {
+            '金': { generates: '水', generatedBy: '土', overcomes: '木', overcomeBy: '火' },
+            '木': { generates: '火', generatedBy: '水', overcomes: '土', overcomeBy: '金' },
+            '水': { generates: '木', generatedBy: '金', overcomes: '火', overcomeBy: '土' },
+            '火': { generates: '土', generatedBy: '木', overcomes: '金', overcomeBy: '水' },
+            '土': { generates: '金', generatedBy: '火', overcomes: '水', overcomeBy: '木' }
+        };
         
-        Generate the report in ${lang === 'zh' ? 'Chinese' : 'English'}. ONLY return HTML code (h3, p, strong, ul, li). Do not include markdown code blocks (like \`\`\`html) in the output, just the raw HTML.
-    `;
-
-    const apiUrl = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1/chat/completions';
-    const apiKey = process.env.DEEPSEEK_API_KEY;
-    const isTestMode = process.env.LEMON_SQUEEZY_TEST_MODE === 'true';
-
-    // Mock reports for test mode fallback
-    const mockReportZh = `
-        <h3>天命八字局势</h3>
-        <p>命主生于阳春时节，五行格局清粹。日主强旺，运行东方木旺之乡，求财得财，求名得名。</p>
-        <h3>五行强弱解析</h3>
-        <p>原局中<strong>木、火</strong>偏旺，缺<strong>金</strong>。木多火炽，需用金来克制木气，调和燥烈之性。</p>
-        <h3>事业财运预测</h3>
-        <p>近期命主星盘闪耀，事业上有贵人相助，多有晋升与开拓新领域的契机。财运方面正财稳妥，偏财有意外之喜。</p>
-        <h3>开运小贴士</h3>
-        <p>建议佩戴白金、水晶等饰品以补足金气，日常多穿着白色、金色系衣物，有助于平衡自身能量，招祥纳瑞。</p>
-    `;
-
-    const mockReportEn = `
-        <h3>Bazi Chart Analysis</h3>
-        <p>Born in the vibrant season of spring, your chart demonstrates a clear and robust configuration. The Day Master is strong, flowing into auspicious woody energy, indicating prosperity and recognition.</p>
-        <h3>Five Elements Balance</h3>
-        <p>Your chart has excessive <strong>Wood and Fire</strong>, but lacks <strong>Metal</strong>. An excess of wood feeds the fire, requiring metal to anchor your energy and balance the heat.</p>
-        <h3>Career & Wealth Outlook</h3>
-        <p>The stars align to bring powerful benefactors into your professional path. Opportunities for promotion or starting new ventures are highly favored. Wealth prospects are stable and promising.</p>
-        <h3>Personalized Luck Tips</h3>
-        <p>We recommend wearing white gold or obsidian accessories to fortify your Metal energy. Incorporating white, silver, or gold colors into your daily wardrobe will harmonize your flow and attract good fortune.</p>
-    `;
-
-    if (!apiKey || apiKey.startsWith('your_') || apiKey === 'sk-9a969f6e9ebe4328a21b077dc237b905') {
-        if (isTestMode) {
-            console.log("Using mock Bazi Destiny Report (DeepSeek API Key is invalid or unset, falling back in test mode).");
-            return lang === 'zh' ? mockReportZh : mockReportEn;
-        }
-    }
-
-    try {
-        if (!apiKey) {
-            throw new Error("Missing DeepSeek API Key in server configuration.");
-        }
-
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json', 
-                'Authorization': `Bearer ${apiKey}` 
-            },
-            body: JSON.stringify({
-                model: "deepseek-chat",
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userPrompt }
-                ],
-                temperature: 0.7
-            })
-        });
-        
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`DeepSeek API error (${response.status}): ${errText}`);
-        }
-        
-        const result = await response.json();
-        let content = result.choices[0].message.content.trim();
-        // Clean any markdown wrapper
-        content = content.replace(/^```html\s*/i, '').replace(/\s*```$/, '');
-        return content;
-    } catch (apiError) {
-        if (isTestMode) {
-            console.warn("DeepSeek API call failed. Falling back to mock report in test mode:", apiError.message);
-            return lang === 'zh' ? mockReportZh : mockReportEn;
-        }
-        throw apiError;
-    }
-}
-
-// 1. API: Create Checkout (supports Test/Mock Mode)
-app.post('/api/create-checkout', async (req, res) => {
-    try {
-        const { fullname, gender, dob, tob, tier } = req.body;
-        
-        if (!fullname || !gender || !dob || !tob || !tier) {
-            return res.status(400).json({ error: "Missing required profile details." });
-        }
-
-        const isTestMode = process.env.LEMON_SQUEEZY_TEST_MODE === 'true';
-
-        if (isTestMode) {
-            // Encode details in base64 token for stateless test checkout
-            const clientData = { fullname, gender, dob, tob, tier, timestamp: Date.now() };
-            const token = Buffer.from(JSON.stringify(clientData)).toString('base64');
-            const mockCheckoutUrl = `/report.html?checkout_id=mock_chk_${token}`;
-            return res.json({ url: mockCheckoutUrl });
-        }
-
-        // Live Lemon Squeezy integration
-        const variantId = TIER_VARIANTS[tier];
-        const storeId = process.env.LEMON_SQUEEZY_STORE_ID;
-        const apiKey = process.env.LEMON_SQUEEZY_API_KEY;
-
-        if (!apiKey || !storeId || variantId.startsWith('mock_')) {
-            return res.status(500).json({ error: "Lemon Squeezy is not fully configured on the server." });
-        }
-
-        const redirectUrl = `${req.protocol}://${req.get('host')}/report.html`;
-
-        const response = await fetch('https://api.lemonsqueezy.com/v1/checkouts', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/vnd.api+json',
-                'Accept': `application/vnd.api+json`
-            },
-            body: JSON.stringify({
-                data: {
-                    type: "checkouts",
-                    attributes: {
-                        custom_price: null,
-                        product_options: {
-                            redirect_url: redirectUrl
-                        },
-                        checkout_data: {
-                            custom: {
-                                fullname,
-                                gender,
-                                dob,
-                                tob,
-                                tier
-                            }
-                        }
-                    },
-                    relationships: {
-                        store: {
-                            data: {
-                                type: "stores",
-                                id: storeId
-                            }
-                        },
-                        variant: {
-                            data: {
-                                type: "variants",
-                                id: variantId
-                            }
-                        }
-                    }
-                }
-            })
-        });
-
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`Lemon Squeezy API error (${response.status}): ${errText}`);
-        }
-
-        const resData = await response.json();
-        const checkoutUrl = resData.data.attributes.url;
-        return res.json({ url: checkoutUrl });
-
-    } catch (error) {
-        console.error("Create Checkout Error:", error);
-        return res.status(500).json({ error: "Failed to create checkout session." });
-    }
-});
-
-// 2. API: Verify payment and generate reading
-app.get('/api/get-reading', async (req, res) => {
-    try {
-        const { checkout_id, order_id, lang } = req.query;
-        const currentLang = lang === 'zh' ? 'zh' : 'en';
-
-        if (!checkout_id && !order_id) {
-            return res.status(400).json({ error: "Missing checkout_id or order_id." });
-        }
-
-        let userData = null;
-
-        // Check if it is a mock checkout first
-        if (checkout_id && checkout_id.startsWith('mock_chk_')) {
-            const token = checkout_id.substring('mock_chk_'.length);
-            const decoded = Buffer.from(token, 'base64').toString('utf8');
-            userData = JSON.parse(decoded);
+        if (dm === dayWuXing) {
+            score = "高";
+            theme = "比劫同气，贵人相助";
+            detailsZh = `今日流日五行为${dayWuXing}，与您的日元属性相同。同气相求，贵人缘佳，适合与团队合作或联络故友，行事顺遂。`;
+            detailsEn = `Today's element is ${dayWuXing}, matching your Day Master. Great harmony and helper energy. Excellent for teamwork or connecting with friends.`;
+        } else if (relations[dm].generatedBy === dayWuXing) {
+            score = "高";
+            theme = "印星生身，福泽连绵";
+            detailsZh = `今日流日五行为${dayWuXing}，生助您的日元。印星庇护，精神饱满，利于学习、思考与修整，能得长辈关照。`;
+            detailsEn = `Today's element ${dayWuXing} generates your Day Master. Blessed by guardian stars, optimal for studying, reflection, and receiving wisdom.`;
+        } else if (relations[dm].overcomes === dayWuXing) {
+            score = "高";
+            theme = "财星高照，求财得利";
+            detailsZh = `今日流日五行为${dayWuXing}，为您所克之财。财星主动，求财欲望增强，商务洽谈或投资决策容易获得正向收益。`;
+            detailsEn = `Today's element ${dayWuXing} is controlled by your Day Master, indicating wealth star activation. Opportunities for financial growth and negotiation are favored.`;
+        } else if (relations[dm].overcomeBy === dayWuXing) {
+            score = "低";
+            theme = "官杀克身，宜静不宜动";
+            detailsZh = `今日流日五行为${dayWuXing}，克制您的日元。压力偏重，情绪容易产生波动，建议低调行事，注意身体健康与作息。`;
+            detailsEn = `Today's element ${dayWuXing} counters your Day Master. Pressure may increase, keep a low profile, protect your energy, and avoid arguments.`;
         } else {
-            // Live payment verification via Lemon Squeezy API
-            const apiKey = process.env.LEMON_SQUEEZY_API_KEY;
-            if (!apiKey) {
-                return res.status(500).json({ error: "Server payment verification key missing." });
-            }
-
-            let response;
-            if (order_id) {
-                // Verify order status
-                response = await fetch(`https://api.lemonsqueezy.com/v1/orders/${order_id}`, {
-                    headers: { 'Authorization': `Bearer ${apiKey}`, 'Accept': 'application/vnd.api+json' }
-                });
-            } else {
-                // Verify checkout status
-                response = await fetch(`https://api.lemonsqueezy.com/v1/checkouts/${checkout_id}`, {
-                    headers: { 'Authorization': `Bearer ${apiKey}`, 'Accept': 'application/vnd.api+json' }
-                });
-            }
-
-            if (!response.ok) {
-                throw new Error(`Failed to query Lemon Squeezy API: ${response.status}`);
-            }
-
-            const payload = await response.json();
-            const attributes = payload.data.attributes;
-
-            // In Lemon Squeezy, order status is 'paid'. If checking checkout, we can verify it has custom metadata
-            // Let's check status
-            const isPaid = order_id ? (attributes.status === 'paid') : true; // checkouts don't have paid status directly, usually order completes them
-
-            if (!isPaid) {
-                return res.status(403).json({ error: "Payment verification pending or failed." });
-            }
-
-            // Extract custom metadata passed during creation
-            const customData = order_id ? attributes.custom_data : attributes.checkout_data.custom;
-            if (!customData || !customData.fullname) {
-                throw new Error("Payment verified but profile metadata is missing.");
-            }
-
-            userData = {
-                fullname: customData.fullname,
-                gender: customData.gender,
-                dob: customData.dob,
-                tob: customData.tob,
-                tier: customData.tier
-            };
+            score = "中";
+            theme = "食伤泄秀，展现才华";
+            detailsZh = `今日流日五行为${dayWuXing}，为您所生之食伤。思维活跃，才华横溢，利于创意与表达，但要防口舌之争。`;
+            detailsEn = `Today's element ${dayWuXing} is generated by your Day Master. Your creativity is high, excellent for artistic output or project brainstorming.`;
         }
-
-        // Generate Bazi and call DeepSeek securely
-        const baziData = calculateBazi(userData.dob, userData.tob);
-        const reportHtml = await generateDestinyReport(userData, baziData, userData.tier, currentLang);
-
-        return res.json({
-            success: true,
-            user: userData,
-            bazi: baziData,
-            report: reportHtml,
-            tier: userData.tier
-        });
-
-    } catch (error) {
-        console.error("Get Reading Error:", error);
-        return res.status(500).json({ error: "Failed to generate reading. Please contact support." });
-    }
-});
-
-// 3. API: Buy Custom Talisman (Fitted with 1688 Dropshipping)
-app.post('/api/buy-talisman', async (req, res) => {
-    try {
-        const { orderId, lackingElement, talismanName, price, fullName, email, shippingAddress, phoneNumber } = req.body;
-        
-        if (!fullName || !shippingAddress || !phoneNumber || !email) {
-            return res.status(400).json({ error: "Missing required contact/shipping details." });
-        }
-
-        const fs = require('fs');
-        const ordersFile = path.join(__dirname, 'orders.json');
-        
-        let orders = [];
-        if (fs.existsSync(ordersFile)) {
-            try {
-                orders = JSON.parse(fs.readFileSync(ordersFile, 'utf8'));
-            } catch (err) {
-                console.error("Error reading orders.json:", err);
-            }
-        }
-
-        const newOrder = {
-            orderId: `TM-${Math.floor(100000 + Math.random() * 900000)}`,
-            destinyOrderId: orderId || 'N/A',
-            talismanName,
-            lackingElement,
-            price,
-            customer: { fullName, email, shippingAddress, phoneNumber },
-            status: 'pending_1688_sync', // simulates 1688 sync state
-            createdAt: new Date().toISOString()
-        };
-
-        orders.push(newOrder);
-        fs.writeFileSync(ordersFile, JSON.stringify(orders, null, 4), 'utf8');
-
-        console.log(`[1688 Dropshipping] New order recorded for 1688 fulfillment:`, newOrder);
-
-        return res.json({
-            success: true,
-            orderId: newOrder.orderId,
-            message: "Purchase completed! Master TianMing will consecrate your talisman, and it will be dropshipped directly via our automated 1688 fulfillment system.",
-            trackingId: `LS-${Math.floor(10000000 + Math.random() * 90000000)}`
-        });
-
-    } catch (error) {
-        console.error("Buy Talisman Error:", error);
-        return res.status(500).json({ error: "Failed to process talisman purchase." });
-    }
-});
-
-// Admin authentication middleware
-const verifyAdmin = (req, res, next) => {
-    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
-    const authHeader = req.headers.authorization;
-    const token = req.query.token;
-    
-    let provided = '';
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        provided = authHeader.substring(7);
-    } else if (token) {
-        provided = token;
     }
     
-    if (provided === adminPassword) {
-        return next();
-    }
-    return res.status(401).json({ error: "Unauthorized admin access." });
-};
-
-// Admin: Get all orders
-app.get('/api/admin/orders', verifyAdmin, (req, res) => {
-    const fs = require('fs');
-    const ordersFile = path.join(__dirname, 'orders.json');
-    let orders = [];
-    if (fs.existsSync(ordersFile)) {
-        try {
-            orders = JSON.parse(fs.readFileSync(ordersFile, 'utf8'));
-        } catch (err) {
-            console.error("Error reading orders.json:", err);
+    return {
+        ganzhi,
+        stem,
+        branch,
+        nayin,
+        luck: score,
+        theme,
+        yi: yi.slice(0, 3), 
+        ji: ji.slice(0, 3),
+        details: {
+            zh: detailsZh,
+            en: detailsEn
         }
-    }
-    // Return sorted by date descending
-    orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    return res.json({ orders });
-});
-
-// Admin: Get 1688 product mappings
-app.get('/api/admin/mappings', verifyAdmin, (req, res) => {
-    const fs = require('fs');
-    const mappingsFile = path.join(__dirname, 'talisman_mappings.json');
-    let mappings = {};
-    if (fs.existsSync(mappingsFile)) {
-        try {
-            mappings = JSON.parse(fs.readFileSync(mappingsFile, 'utf8'));
-        } catch (err) {
-            console.error("Error reading talisman_mappings.json:", err);
-        }
-    }
-    return res.json({ mappings });
-});
-
-// Admin: Update 1688 product mapping
-app.post('/api/admin/update-mapping', verifyAdmin, (req, res) => {
-    const fs = require('fs');
-    const mappingsFile = path.join(__dirname, 'talisman_mappings.json');
-    const { element, productId, skuId, notes } = req.body;
-    
-    if (!element || !productId) {
-        return res.status(400).json({ error: "Missing element or productId." });
-    }
-
-    let mappings = {};
-    if (fs.existsSync(mappingsFile)) {
-        try {
-            mappings = JSON.parse(fs.readFileSync(mappingsFile, 'utf8'));
-        } catch (err) {
-            console.error("Error reading mappings:", err);
-        }
-    }
-
-    mappings[element] = {
-        productId,
-        skuId: skuId || "",
-        description: mappings[element] ? mappings[element].description : `${element} Talisman`,
-        notes: notes || ""
     };
+}
 
-    fs.writeFileSync(mappingsFile, JSON.stringify(mappings, null, 4), 'utf8');
-    return res.json({ success: true, message: "Mapping updated successfully.", mappings });
-});
-
-// Admin: Export 1688 Dropshipping Excel/CSV Template
-app.get('/api/admin/export-csv', verifyAdmin, (req, res) => {
-    const fs = require('fs');
-    const ordersFile = path.join(__dirname, 'orders.json');
-    const mappingsFile = path.join(__dirname, 'talisman_mappings.json');
+// Helper: Generate Mock Bazi Detailed Reports
+function generateDetailedReport(userData, baziData) {
+    const name = userData.fullname;
+    const dm = baziData.dayMasterElement;
     
-    let orders = [];
-    if (fs.existsSync(ordersFile)) {
-        orders = JSON.parse(fs.readFileSync(ordersFile, 'utf8'));
-    }
-    
-    let mappings = {};
-    if (fs.existsSync(mappingsFile)) {
-        mappings = JSON.parse(fs.readFileSync(mappingsFile, 'utf8'));
-    }
+    return {
+        wuxing: {
+            title: "五行的分布与流通",
+            title_en: "Five Elements Distribution & Flow",
+            content_zh: `<h3>五行能量分布分析</h3>
+                         <p>命主<strong>${name}</strong>的日元属<strong>${dm}</strong>。经排盘推演，其命局五行分布为：
+                         金：${baziData.elements.filter(e => e.includes('金')).length}个，
+                         木：${baziData.elements.filter(e => e.includes('木')).length}个，
+                         水：${baziData.elements.filter(e => e.includes('水')).length}个，
+                         火：${baziData.elements.filter(e => e.includes('火')).length}个，
+                         土：${baziData.elements.filter(e => e.includes('土')).length}个。</p>
+                         <p>整体格局呈现能量流动。当前大运与流年磁场交汇，建议多接触互补五行对应的生活习惯进行能量调和。</p>`,
+            content_en: `<h3>Elemental Balance Quantification</h3>
+                         <p>Client <strong>${name}</strong>'s Day Master is <strong>${dm}</strong>. The elemental distribution in the natal chart shows:
+                         Metal: ${baziData.elements.filter(e => e.includes('金')).length}, 
+                         Wood: ${baziData.elements.filter(e => e.includes('木')).length}, 
+                         Water: ${baziData.elements.filter(e => e.includes('水')).length}, 
+                         Fire: ${baziData.elements.filter(e => e.includes('火')).length}, 
+                         Earth: ${baziData.elements.filter(e => e.includes('土')).length}.</p>
+                         <p>To enhance cosmic alignment, balancing deficient elements through environment layout is highly recommended.</p>`
+        },
+        yongshen: {
+            title: "用神与忌神",
+            title_en: "Favorable & Unfavorable Elements",
+            content_zh: `<h3>喜忌神详批</h3>
+                         <p>根据《渊海子平》身强身弱判定：本命以<strong>${dm === '木' || dm === '水' ? '金' : '木'}</strong>为用神，以<strong>${dm === '火' || dm === '土' ? '水' : '土'}</strong>为忌神。</p>
+                         <p><strong>用神（Yong Shen）</strong>代表命局的枢纽与解药。在用神岁运中，命主心境开朗，事业财富极易突破瓶颈。<strong>忌神（Ji Shen）</strong>则代表压力与阻碍，逢忌神流年需低调收敛，防范损财。</p>`,
+            content_en: `<h3>Yong Shen & Ji Shen Analysis</h3>
+                         <p>Based on classic Bazi balancing rules, your Favorable Element (Yong Shen) is determined to be <strong>${dm === '木' || dm === '水' ? 'Metal' : 'Wood'}</strong>, and your Unfavorable Element (Ji Shen) is <strong>${dm === '火' || dm === '土' ? 'Water' : 'Earth'}</strong>.</p>
+                         <p>Activating your Favorable Element via lifestyle adjustments will significantly boost your fortune, while caution should be exercised during seasons dominated by your Unfavorable Element.</p>`
+        },
+        career: {
+            title: "红包 | 事业财富",
+            title_en: "Career & Wealth Fortune",
+            content_zh: `<h3>一生财运官运轨迹</h3>
+                         <p>命盘中财星暗藏，代表一生财富多为“大器晚成”之象。正财稳健，适合在专业领域深耕；偏财星弱，不宜投机性强的金融博弈。</p>
+                         <p>用神为${dm === '木' || dm === '水' ? '金' : '木'}，最适合从事与之相关的行业。中年以后行运好转，财库大开，有白手起家、稳步晋升的极佳机缘。</p>`,
+            content_en: `<h3>Career Path & Financial Lifeline</h3>
+                         <p>Your chart contains active Direct Wealth stars, suggesting stable, long-term asset accumulation through professional mastery. Speculative or high-risk investments should be avoided.</p>
+                         <p>Aligning your job with industries associated with your Favorable Element will unlock rapid promotions and financial security, especially during your 30s and 40s.</p>`
+        },
+        marriage: {
+            title: "同心锁 | 婚姻感情",
+            title_en: "Love & Spouse Palace",
+            content_zh: `<h3>夫妻宫与桃花羁绊</h3>
+                         <p>本命夫妻宫坐守吉星，代表配偶性格温和，在事业或生活中对您有极大助益。男女命盘中桃花星适中，异性缘佳，但要防范情感摩擦。</p>
+                         <p>婚姻美满期通常在流年逢合的年份。若未婚，未来两年内（特别是流年逢六合、三合之年）将迎来正缘桃花，宜积极把握相识良机。</p>`,
+            content_en: `<h3>Romantic Harmony & Marriage Palace</h3>
+                         <p>The Spouse Palace in your birth chart is populated by auspicious auxiliary stars, indicating a supportive, loyal, and intelligent life partner who brings peace and stability.</p>
+                         <p>For single individuals, cosmic alignments in the upcoming 12-24 months show a high probability of meeting your destiny partner. Nurture these connections with patience.</p>`
+        },
+        growth: {
+            title: "文昌笔 | 学习成长",
+            title_en: "Education & Growth",
+            content_zh: `<h3>智力启迪与自我修养</h3>
+                         <p>文昌贵人高悬，命主天资聪颖，心思缜密。学习能力强，适合深造，考运极佳。一生乐于钻研，多才多艺，常在学术或文化创意领域展现过人天赋。</p>
+                         <p>建议日常多阅读经典，修身养性，能够冲破精神瓶颈，达到更高的境界。</p>`,
+            content_en: `<h3>Intellectual Talents & Spiritual Growth</h3>
+                         <p>Blessed by the Wen Chang (Academic) star, you possess a sharp, analytical mind and high curiosity. You learn complex concepts quickly and have strong exam luck.</p>
+                         <p>Continued learning, writing, or teaching are powerful channels to express your inner genius and achieve spiritual satisfaction.</p>`
+        },
+        health: {
+            title: "平安符 | 身体健康",
+            title_en: "Health & Vitality",
+            content_zh: `<h3>五行脏腑调理指引</h3>
+                         <p>本命局中，由于五行中${dm === '金' ? '木气' : '金气'}较弱，需特别注意与之相关的脏腑保养。金主肺、大肠，木主肝、胆，土主脾、胃，水主肾、膀胱，火主心、小肠。</p>
+                         <p>作息应当顺应四时变化，多进行户外有氧运动，合理膳食以养元气。</p>`,
+            content_en: `<h3>Elemental Health Alignment</h3>
+                         <p>With an imbalance where ${dm === '金' ? 'Wood' : 'Metal'} is deficient, close attention should be paid to liver/gallbladder or lung/respiratory systems respectively.</p>
+                         <p>Maintaining a balanced lifestyle with regular sleep patterns, natural organic diet, and light exercise will strengthen your immune field.</p>`
+        },
+        annual2026: {
+            title: "2026丙午年运书",
+            title_en: "2026 BingWu Annual Flow Book",
+            content_zh: `<h3>2026丙午年流年大势详批</h3>
+                         <p>2026为丙午流年，天干为丙火，地支为午火，乃是极旺之火运。火主礼、主光明、主爆发。</p>
+                         <p>对于日元为<strong>${dm}</strong>的命主来说：
+                         ${dm === '金' ? '火来克金，官杀重重。今年职场上面临重大转型与责任加码，挑战与机遇并存，需防犯小人，稳字当头。' : ''}
+                         ${dm === '木' ? '木来生火，食伤泄秀。今年创意涌现，是开拓事业、展现才华的绝佳年份，但需注意防范身心过劳。' : ''}
+                         ${dm === '水' ? '水来克火，水火既济。财官交汇，利于商务拓展、买房置业，情感上有正缘牵线，生活迎来转折。' : ''}
+                         ${dm === '火' ? '火火相遇，比劫争财。今年竞争激烈，切忌盲目投资或合伙创业，凡事应保守沉着，保本为上。' : ''}
+                         ${dm === '土' ? '火来生土，印星高照。今年运势顺遂，有贵人扶持，房产运或学业考运极佳，适合安心谋求长远规划。' : ''}
+                         </p>
+                         <p>建议在年中（特别是夏季火旺之时）保持冷静克制，避免做冲动决策。宜佩戴吉祥物或调和方位，方可乘风破浪，趋吉避凶。</p>`,
+            content_en: `<h3>2026 BingWu Annual Forecast</h3>
+                         <p>2026 is the year of BingWu (Fire Horse), bringing intense, radiant Fire energy globally, governing passion, digital growth, and fast transformations.</p>
+                         <p>For your Day Master <strong>${dm}</strong>, this means:
+                         ${dm === '金' ? 'Fire counters Metal. High career shifts and responsibility increases are expected. Exercise patience, protect health, and avoid workplace friction.' : ''}
+                         ${dm === '木' ? 'Wood feeds Fire. High creative output and entrepreneurial opportunities appear. Express your talents boldly, but guard against burnout.' : ''}
+                         ${dm === '水' ? 'Water controls Fire. Excellent opportunities for business development, asset acquisition, and romantic milestones. Balance fire with calm reflection.' : ''}
+                         ${dm === '火' ? 'Fire joins Fire. High competition. Guard against impulsive partnerships or quick investments. Prioritize risk management.' : ''}
+                         ${dm === '土' ? 'Fire feeds Earth. Strong support from mentors, high academic luck, and property stability. A beautiful year to consolidate and plan.' : ''}
+                         </p>
+                         <p>Focus on maintaining mental peace during summer months when fire peaks. Aligning your schedule will attract good fortune throughout 2026.</p>`
+        }
+    };
+}
 
-    // Prepare CSV Content (standard dropship CSV template)
-    // UTF-8 with BOM to prevent Excel display corruption
-    let csvContent = '\uFEFF';
-    csvContent += '订单号(Our Order ID),收货人姓名(Name),收货人电话(Phone),收货地址(Address),1688宝贝ID(1688 Offer ID),1688规格SKU(1688 SKU ID),购买数量(Qty),商家备注(Notes),订单状态(Status)\n';
-
-    orders.forEach(o => {
-        const elementKey = o.lackingElement ? o.lackingElement.toLowerCase() : '';
-        const mapInfo = mappings[elementKey] || { productId: '', skuId: '' };
-        
-        // Escape CSV values containing commas or quotes
-        const cleanName = (o.customer.fullName || '').replace(/"/g, '""');
-        const cleanPhone = (o.customer.phoneNumber || '').replace(/"/g, '""');
-        const cleanAddr = (o.customer.shippingAddress || '').replace(/"/g, '""');
-        
-        csvContent += `"${o.orderId}","${cleanName}","${cleanPhone}","${cleanAddr}","${mapInfo.productId}","${mapInfo.skuId}",1,"五行:${o.lackingElement}","${o.status}"\n`;
+// Expose configuration to frontend
+app.get('/api/config', (req, res) => {
+    return res.json({
+        googleClientId: process.env.GOOGLE_CLIENT_ID || ""
     });
-
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename=talisman_1688_dropship_orders.csv');
-    return res.send(csvContent);
 });
 
-// Admin: Sync Order to 1688 via API (Real + Mock simulation client)
-app.post('/api/admin/sync-1688', verifyAdmin, async (req, res) => {
-    const fs = require('fs');
-    const { orderId } = req.body;
-    
-    if (!orderId) {
-        return res.status(400).json({ error: "Missing orderId." });
-    }
-
-    const ordersFile = path.join(__dirname, 'orders.json');
-    const mappingsFile = path.join(__dirname, 'talisman_mappings.json');
-    
-    let orders = [];
-    if (fs.existsSync(ordersFile)) {
-        orders = JSON.parse(fs.readFileSync(ordersFile, 'utf8'));
-    }
-    
-    let mappings = {};
-    if (fs.existsSync(mappingsFile)) {
-        mappings = JSON.parse(fs.readFileSync(mappingsFile, 'utf8'));
-    }
-
-    const orderIdx = orders.findIndex(o => o.orderId === orderId);
-    if (orderIdx === -1) {
-        return res.status(404).json({ error: "Order not found." });
-    }
-
-    const order = orders[orderIdx];
-    const elementKey = order.lackingElement ? order.lackingElement.toLowerCase() : '';
-    const mapInfo = mappings[elementKey];
-
-    if (!mapInfo || !mapInfo.productId) {
-        return res.status(400).json({ error: `Please configure a 1688 Product ID for the element '${order.lackingElement}' first.` });
-    }
-
-    // 1688 API Credentials from env
-    const appKey = process.env['1688_APP_KEY'];
-    const appSecret = process.env['1688_APP_SECRET'];
-    const accessToken = process.env['1688_ACCESS_TOKEN'];
-    const buyerMemberId = process.env['1688_BUYER_MEMBER_ID'] || 'mock_buyer_member';
-
-    const isMock = !appKey || !appSecret || !accessToken || appKey.startsWith('your_');
-
-    // Build the cargo and address payload for 1688
-    const orderPayload = {
-        addressParam: JSON.stringify({
-            fullName: order.customer.fullName,
-            mobile: order.customer.phoneNumber,
-            phone: order.customer.phoneNumber,
-            postCode: "000000", // Default postcode
-            province: "浙江省",  // In production, we parse province/city/area using address parsing libs
-            city: "杭州市",
-            area: "滨江区",
-            address: order.customer.shippingAddress
-        }),
-        cargoParamList: JSON.stringify([{
-            offerId: parseInt(mapInfo.productId),
-            specId: mapInfo.skuId || undefined,
-            quantity: 1
-        }]),
-        flow: "general", // general dropshipping flow
-        buyerMemberId
-    };
-
-    if (isMock) {
-        // Simulation mode
-        console.log(`[1688 API Simulation] Placing order on 1688 for customer ${order.customer.fullName}:`, orderPayload);
-        
-        // Update local order status
-        const mock1688OrderId = `ALIBABA1688-${Math.floor(100000000 + Math.random() * 900000000)}`;
-        order.status = 'synced_to_1688';
-        order.alibabaOrderId = mock1688OrderId;
-        order.syncedAt = new Date().toISOString();
-        
-        fs.writeFileSync(ordersFile, JSON.stringify(orders, null, 4), 'utf8');
-
-        return res.json({
-            success: true,
-            simulated: true,
-            alibabaOrderId: mock1688OrderId,
-            message: "1688 API connection simulated successfully! (To activate real synchronization, configure your 1688 API keys in .env)",
-            payloadSent: orderPayload
-        });
-    }
-
-    // Real API integration client
+// 1. API: Auth Register
+app.post('/api/auth/register', (req, res) => {
     try {
-        const crypto = require('crypto');
-        
-        // Alibaba Open API URL format:
-        // http://gw.api.alibaba.com/openapi/param2/1/com.alibaba.trade/alibaba.trade.fastCreateOrder/YOUR_APP_KEY
-        const apiPath = `param2/1/com.alibaba.trade/alibaba.trade.fastCreateOrder/${appKey}`;
-        const apiUrl = `https://gw.api.alibaba.com/openapi/${apiPath}`;
-        
-        // Add auth parameters
-        const apiParams = {
-            access_token: accessToken,
-            ...orderPayload
+        const { username, password, fullname, gender, dob, tob } = req.body;
+        if (!username || !password || !fullname || !gender || !dob || !tob) {
+            return res.status(400).json({ error: "请填写所有必填注册字段。" });
+        }
+
+        const users = readUsers();
+        const exists = users.find(u => u.username === username);
+        if (exists) {
+            return res.status(400).json({ error: "该用户名已被注册。" });
+        }
+
+        const newUser = {
+            username,
+            password,
+            fullname,
+            gender,
+            dob,
+            tob,
+            tier: 'free',
+            chatCount: 0,
+            registeredAt: new Date().toISOString()
         };
 
-        // Signature calculation
-        const sortedKeys = Object.keys(apiParams).sort();
-        let paramStr = '';
-        for (const key of sortedKeys) {
-            paramStr += key + apiParams[key];
-        }
-        const signatureStr = apiPath + paramStr;
-        const hmac = crypto.createHmac('sha1', appSecret);
-        hmac.update(signatureStr);
-        const signature = hmac.digest('hex').toUpperCase();
+        users.push(newUser);
+        writeUsers(users);
 
-        apiParams['_aop_signature'] = signature;
-
-        // Make the outbound post request using application/x-www-form-urlencoded
-        const bodyParams = new URLSearchParams();
-        for (const k in apiParams) {
-            bodyParams.append(k, apiParams[k]);
-        }
-
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: bodyParams.toString()
-        });
-
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`1688 API request failed (${response.status}): ${errText}`);
-        }
-
-        const resData = await response.json();
-        
-        if (resData.success === false || resData.errorMsg) {
-            throw new Error(resData.errorMsg || resData.errorMessage || "Unknown error from 1688 API.");
-        }
-
-        // Extract 1688 order ID
-        const alibabaOrderId = resData.result.orderId;
-        order.status = 'synced_to_1688';
-        order.alibabaOrderId = alibabaOrderId;
-        order.syncedAt = new Date().toISOString();
-
-        fs.writeFileSync(ordersFile, JSON.stringify(orders, null, 4), 'utf8');
-
-        return res.json({
-            success: true,
-            simulated: false,
-            alibabaOrderId,
-            message: "Successfully synchronized order to your 1688 account! Please complete payment in your 1688 console.",
-            result: resData.result
-        });
-
-    } catch (apiError) {
-        console.error("1688 API execution failed:", apiError);
-        return res.status(500).json({
-            error: "Failed to connect to 1688 API.",
-            details: apiError.message
-        });
+        return res.json({ success: true, user: { username: newUser.username, fullname: newUser.fullname, tier: newUser.tier } });
+    } catch (e) {
+        console.error("Register error:", e);
+        return res.status(500).json({ error: "服务器内部注册错误。" });
     }
 });
 
-// Serve Admin Dashboard
-app.get('/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'admin.html'));
+// 2. API: Auth Login
+app.post('/api/auth/login', (req, res) => {
+    try {
+        const { username, password } = req.body;
+        if (!username || !password) {
+            return res.status(400).json({ error: "用户名及密码不可为空。" });
+        }
+
+        const users = readUsers();
+        const user = users.find(u => u.username === username && u.password === password);
+        if (!user) {
+            return res.status(401).json({ error: "用户名或密码错误。" });
+        }
+
+        return res.json({ success: true, user: { username: user.username, fullname: user.fullname, tier: user.tier } });
+    } catch (e) {
+        console.error("Login error:", e);
+        return res.status(500).json({ error: "服务器内部登录错误。" });
+    }
 });
-app.get('/admin.html', (req, res) => {
-    res.sendFile(path.join(__dirname, 'admin.html'));
+
+// Google Authentication Check
+app.post('/api/auth/google', async (req, res) => {
+    try {
+        const { googleId, email, accessToken } = req.body;
+        
+        let targetGoogleId = googleId;
+        let targetEmail = email;
+        let targetName = "";
+
+        if (accessToken) {
+            // Real OAuth verification: query Google userinfo API
+            try {
+                const googleRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                if (!googleRes.ok) {
+                    const errText = await googleRes.text();
+                    console.error("Failed to verify Google access token:", errText);
+                    return res.status(400).json({ error: "Invalid Google access token." });
+                }
+                const profile = await googleRes.json();
+                targetGoogleId = profile.sub;
+                targetEmail = profile.email;
+                targetName = profile.name || profile.given_name || "";
+            } catch (err) {
+                console.error("Error verifying access token with Google:", err);
+                return res.status(502).json({ error: "Unable to verify credentials with Google." });
+            }
+        }
+
+        if (!targetGoogleId || !targetEmail) {
+            return res.status(400).json({ error: "Missing googleId, email, or accessToken." });
+        }
+
+        const users = readUsers();
+        let user = users.find(u => u.googleId === targetGoogleId || (u.email && u.email === targetEmail));
+        if (user) {
+            // Update googleId if matched by email and not set yet
+            if (!user.googleId) {
+                user.googleId = targetGoogleId;
+                writeUsers(users);
+            }
+            return res.json({
+                success: true,
+                exists: true,
+                user: { username: user.username, fullname: user.fullname, tier: user.tier }
+            });
+        }
+
+        return res.json({ 
+            success: true, 
+            exists: false, 
+            profile: { 
+                googleId: targetGoogleId, 
+                email: targetEmail, 
+                name: targetName 
+            } 
+        });
+    } catch (e) {
+        console.error("Google auth check error:", e);
+        return res.status(500).json({ error: "Internal server error during Google auth check." });
+    }
+});
+
+// Google Authentication Register
+app.post('/api/auth/google-register', (req, res) => {
+    try {
+        const { googleId, email, name, fullname, gender, dob, tob } = req.body;
+        if (!googleId || !email || !fullname || !gender || !dob || !tob) {
+            return res.status(400).json({ error: "请填写所有必填注册及八字字段。" });
+        }
+
+        const users = readUsers();
+        let user = users.find(u => u.googleId === googleId || (u.email && u.email === email));
+        if (user) {
+            return res.status(400).json({ error: "该 Google 账号已被关联。" });
+        }
+
+        let cleanEmailPrefix = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '');
+        let username = `g_${cleanEmailPrefix}`;
+        let counter = 1;
+        let baseUsername = username;
+        while (users.some(u => u.username === username)) {
+            username = `${baseUsername}_${counter}`;
+            counter++;
+        }
+
+        const newUser = {
+            username,
+            email,
+            googleId,
+            password: `g_pass_${googleId}`,
+            fullname,
+            gender,
+            dob,
+            tob,
+            tier: 'free',
+            chatCount: 0,
+            registeredAt: new Date().toISOString()
+        };
+
+        users.push(newUser);
+        writeUsers(users);
+
+        return res.json({ success: true, user: { username: newUser.username, fullname: newUser.fullname, tier: newUser.tier } });
+    } catch (e) {
+        console.error("Google register error:", e);
+        return res.status(500).json({ error: "服务器内部 Google 注册错误。" });
+    }
+});
+
+// 3. API: Get Profile & Bazi Calculation
+app.get('/api/user/profile', (req, res) => {
+    try {
+        const { username } = req.query;
+        if (!username) {
+            return res.status(400).json({ error: "Missing username parameter." });
+        }
+
+        const users = readUsers();
+        const user = users.find(u => u.username === username);
+        if (!user) {
+            return res.status(404).json({ error: "User not found." });
+        }
+
+        const bazi = calculateBazi(user.dob, user.tob);
+        return res.json({
+            success: true,
+            user: {
+                username: user.username,
+                fullname: user.fullname,
+                gender: user.gender,
+                dob: user.dob,
+                tob: user.tob,
+                tier: user.tier
+            },
+            bazi
+        });
+    } catch (e) {
+        console.error("Profile query error:", e);
+        return res.status(500).json({ error: "Internal profile retrieval error." });
+    }
+});
+
+// 4. API: Daily Fortune Calculations
+app.get('/api/daily-fortune', (req, res) => {
+    try {
+        const { date, dob, tob } = req.query;
+        if (!date) {
+            return res.status(400).json({ error: "Missing date parameter (YYYY-MM-DD)." });
+        }
+        
+        const fortune = getDailyFortuneData(date, dob, tob);
+        return res.json({ success: true, fortune });
+    } catch (e) {
+        console.error("Daily fortune error:", e);
+        return res.status(500).json({ error: "Internal calendar prediction error." });
+    }
+});
+
+// 5. API: Get Destiny Detailed Reports (locked vs unlocked)
+app.get('/api/bazi-report', (req, res) => {
+    try {
+        const { username } = req.query;
+        if (!username) {
+            return res.status(400).json({ error: "Missing username parameter." });
+        }
+
+        const users = readUsers();
+        const user = users.find(u => u.username === username);
+        if (!user) {
+            return res.status(404).json({ error: "User not found." });
+        }
+
+        const bazi = calculateBazi(user.dob, user.tob);
+        const reportData = generateDetailedReport(user, bazi);
+
+        // If user is not master, return locked/restricted payload
+        if (user.tier !== 'master') {
+            return res.json({
+                success: true,
+                unlocked: false,
+                message: "This report is locked. Please upgrade to Master membership.",
+                bazi: {
+                    pillars: bazi.pillars,
+                    elements: bazi.elements,
+                    dayMasterElement: bazi.dayMasterElement
+                }
+            });
+        }
+
+        // Return fully unlocked reports
+        return res.json({
+            success: true,
+            unlocked: true,
+            bazi,
+            reports: reportData
+        });
+    } catch (e) {
+        console.error("Report generation error:", e);
+        return res.status(500).json({ error: "Failed to generate report." });
+    }
+});
+
+// 6. API: AI Divination Consultation Chat (Limited for Free users)
+app.post('/api/chat/message', async (req, res) => {
+    try {
+        const { username, message, assistant } = req.body;
+        if (!username || !message) {
+            return res.status(400).json({ error: "Missing username or message." });
+        }
+
+        const users = readUsers();
+        const userIdx = users.findIndex(u => u.username === username);
+        if (userIdx === -1) {
+            return res.status(404).json({ error: "User not found." });
+        }
+
+        const user = users[userIdx];
+
+        // Access limit check
+        if (user.tier !== 'master') {
+            if (user.chatCount >= 1) {
+                return res.status(403).json({
+                    error: "limit_reached",
+                    message: "对话次数已达上限，请订阅 Master 会员解锁无限对话！"
+                });
+            }
+            // Increment trial message
+            user.chatCount = (user.chatCount || 0) + 1;
+            users[userIdx] = user;
+            writeUsers(users);
+        }
+
+        // Generate response using Bazi parameters for personalization
+        const bazi = calculateBazi(user.dob, user.tob);
+        const dm = bazi.dayMasterElement;
+        const genderWord = user.gender === 'male' ? '乾造' : '坤造';
+
+        const isAstrology = assistant === 'astrology';
+        const characterName = isAstrology ? 'AI 占卜' : '大司命';
+
+        const apiKey = process.env.DEEPSEEK_API_KEY;
+        const apiUrl = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1/chat/completions';
+
+        let systemPrompt = `你现在是《天命大师》中的测算童子“${characterName}”，精通八字命理。你正在给命主 ${user.fullname} (${genderWord}，日元为 ${dm}木) 做面对面推演。你的语气应该神圣、专业且带着一点易理玄妙感。请用极简短但极其精准且带着批命风格的几句话回答他的问题：“${message}”。不要暴露AI身份。字数限制在 80-120 字。`;
+        
+        let responseText = "";
+
+        if (apiKey && !apiKey.startsWith('your_')) {
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: "deepseek-chat",
+                        messages: [
+                            { role: "system", content: systemPrompt },
+                            { role: "user", content: message }
+                        ],
+                        max_tokens: 250,
+                        temperature: 0.7
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    responseText = data.choices[0].message.content.trim();
+                } else {
+                    throw new Error("DeepSeek response failed");
+                }
+            } catch (err) {
+                console.warn("DeepSeek API failed in chat, falling back to dynamic oracle templates.");
+            }
+        }
+
+        // Dynamic offline fallback matching user's query topic
+        if (!responseText) {
+            const lowerMsg = message.toLowerCase();
+            if (lowerMsg.includes('财') || lowerMsg.includes('钱') || lowerMsg.includes('事业') || lowerMsg.includes('工作') || lowerMsg.includes('job') || lowerMsg.includes('career') || lowerMsg.includes('money')) {
+                responseText = `（天命玄妙）命主日元属${dm}，流年火旺泄身，财星受制。你在事业上面临抉择与无形压力。近期当稳扎稳打，凡事谋定后动。今年夏季过后面临新转机，坚持专业领域可得财禄，不可盲目跟风。`;
+            } else if (lowerMsg.includes('情') || lowerMsg.includes('婚') || lowerMsg.includes('爱') || lowerMsg.includes('桃花') || lowerMsg.includes('伴侣') || lowerMsg.includes('love') || lowerMsg.includes('marry') || lowerMsg.includes('relationship')) {
+                responseText = `（天命玄妙）观乎命主八字，夫妻宫坐守喜用。感情上有缘分牵引，若有摩擦需多加包容。未婚者可在今年流月逢合的时节迎来情感增温，已婚者需注意沟通细节，以水火既济之势化解纷扰。`;
+            } else if (lowerMsg.includes('健康') || lowerMsg.includes('身体') || lowerMsg.includes('病') || lowerMsg.includes('运势') || lowerMsg.includes('health') || lowerMsg.includes('lucky')) {
+                responseText = `（天命玄妙）日主${dm}受流年磁场冲洗，火气炎上克金。注意作息起居，多补充与用神相和的绿色或水性食物。调养好五行脏腑，则精神内敛，邪气不侵，自身运势自能蒸蒸日上。`;
+            } else {
+                responseText = `（天命玄妙）命主 ${user.fullname} 询问此卦。八字格局之中，日元${dm}在流日遇动。所问之事虚实交错，应当心平气静。退一步海阔天空，在顺应五行流转的规律下，耐心等待自可拨云见日。`;
+            }
+        }
+
+        return res.json({
+            success: true,
+            reply: responseText,
+            remainingCount: user.tier === 'master' ? -1 : 0
+        });
+    } catch (e) {
+        console.error("Chat message error:", e);
+        return res.status(500).json({ error: "Failed to generate chat response." });
+    }
+});
+
+// 7. API: Simulate Webhook Subscription Complete
+app.post('/api/subscribe/simulate', (req, res) => {
+    try {
+        const { username } = req.body;
+        if (!username) {
+            return res.status(400).json({ error: "Username is required." });
+        }
+
+        const users = readUsers();
+        const idx = users.findIndex(u => u.username === username);
+        if (idx === -1) {
+            return res.status(404).json({ error: "User not found." });
+        }
+
+        users[idx].tier = 'master';
+        writeUsers(users);
+
+        console.log(`[Subscription simulated] User ${username} unlocked all Bazi modules and annual book.`);
+        return res.json({
+            success: true,
+            user: {
+                username: users[idx].username,
+                fullname: users[idx].fullname,
+                tier: users[idx].tier
+            }
+        });
+    } catch (e) {
+        console.error("Simulation error:", e);
+        return res.status(500).json({ error: "Internal simulation webhook error." });
+    }
 });
 
 // Fallback to serving index.html for undefined routes
@@ -752,5 +646,5 @@ app.get('*all', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`TianMing Server running securely on http://localhost:${PORT}`);
+    console.log(`TianMing SaaS Server running securely on http://localhost:${PORT}`);
 });
